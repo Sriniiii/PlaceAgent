@@ -15,9 +15,11 @@ PlaceAgent is a hackathon-ready autonomous AI placement operations system with:
 - Animated landing page
 - Student portal with readiness insights
 - TPC dashboard with alerts
+- Company HR portal with shortlist generation
 - Multi-agent backend workflows
-- Resume upload + parsing simulation
-- Mock interview loop + scorecard generation
+- Resume upload and parsing
+- Mock interview loop and scorecard generation
+- Task tracking, progress, and AI mentor chat
 
 ## Run locally
 
@@ -53,39 +55,23 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 ## Core agents
 
-- `ScoutAgent`: parses resume text and extracts skills
-- `MatcherAgent`: scores company matches
-- `PlannerAgent`: generates weekly prep plans
+- `ScoutAgent`: parses resumes and detects strengths and gaps
+- `MatcherAgent`: scores company and role fit
+- `PlannerAgent`: generates preparation plans and task blueprints
+- `MentorAgent`: powers the AI chat mentor
 - `InterviewerAgent`: runs mock interview feedback loops
-- `WatchdogAgent`: monitors readiness drops and risk alerts
+- `WatchdogAgent`: monitors readiness drops and raises alerts
+- `InsightAgent`: generates analytics and HR shortlists
+
+## Current app routes
+
+- `/` landing page
+- `/student` student dashboard
+- `/tpc` TPC dashboard
+- `/hr` company HR portal
 
 ## Notes
 
-- The app is fully demoable offline with seeded data.
-- If you later add a real LLM provider, the backend orchestration layer is the place to plug it in.
-
-## Suggested Hackathon Phases
-
-### Phase 1
-
-- Ship the current MVP exactly as-is
-- Demo the landing page, student portal, TPC dashboard, and agent trace
-- Use seeded students so the judge flow is smooth
-
-### Phase 2
-
-- Plug in a real LLM provider for resume parsing and interview feedback
-- Add PDF text extraction and persistent storage
-- Save interview sessions and alerts to a database
-
-### Phase 3
-
-- Add recruiter/company portal
-- Add authentication for students and TPC staff
-- Add scheduled watchdog jobs and notification delivery
-
-### Phase 4
-
-- Deploy frontend and backend
-- Add analytics, placement conversion tracking, and richer company matching
-- Connect voice input/output for the interview loop
+- Gemini calls are made server-side.
+- Data is currently in-memory for hackathon speed.
+- The next production step is persistence with Supabase/Auth/Storage plus async jobs.
