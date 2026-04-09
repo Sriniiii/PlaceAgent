@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PlaceAgent | AI Placement Command Center</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="noise"></div>
+  <header class="topbar">
+    <a class="brand brand-link" href="/">
+      <span class="brand-mark"></span>
+      <span>PlaceAgent</span>
+    </a>
+    <nav class="nav">
+      <a href="#roles">Roles</a>
+      <a href="#agents">Agents</a>
+      <a href="#story">Story</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero hero-landing" id="story">
+      <div class="hero-copy">
+        <div class="eyebrow">Gemini-Powered Placement Intelligence</div>
+        <h1>Landing page first. Real dashboards next. Live AI agents underneath.</h1>
+        <p>
+          PlaceAgent is a role-based placement platform. Students get resume intelligence, company matches,
+          and interview coaching. TPC teams get live risk alerts, operational visibility, and automated intervention signals.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="/student">Open Student Dashboard</a>
+          <a class="btn btn-secondary" href="/tpc">Open TPC Dashboard</a>
+        </div>
+        <div id="ai-banner" class="ai-banner"></div>
+      </div>
+      <div class="hero-visual">
+        <div class="orb orb-a"></div>
+        <div class="orb orb-b"></div>
+        <div class="glass hero-panel">
+          <div class="panel-header">
+            <span class="pulse"></span>
+            <span>System Overview</span>
+          </div>
+          <div class="landing-overview" id="landing-overview"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section roles" id="roles">
+      <div class="section-head">
+        <span class="eyebrow">Choose A Role</span>
+        <h2>Separate interfaces for students and TPC teams</h2>
+      </div>
+      <div class="role-grid">
+        <article class="glass role-card role-student">
+          <div class="panel-title">Student Experience</div>
+          <h3>Personal readiness dashboard</h3>
+          <p>Upload a resume, get skill-gap insights, see role matches, and run live mock interviews with Gemini-backed coaching.</p>
+          <a class="btn btn-primary" href="/student">Go To Student Portal</a>
+        </article>
+        <article class="glass role-card role-tpc">
+          <div class="panel-title">TPC Experience</div>
+          <h3>Placement operations command center</h3>
+          <p>Track readiness risk, view active alerts, inspect agent activity, and run the Watchdog to surface students who need support.</p>
+          <a class="btn btn-secondary" href="/tpc">Go To TPC Portal</a>
+        </article>
+      </div>
+    </section>
+
+    <section class="section architecture" id="agents">
+      <div class="section-head">
+        <span class="eyebrow">Agent Chain</span>
+        <h2>Five agents coordinate the placement lifecycle</h2>
+      </div>
+      <div class="agent-grid">
+        <article class="glass agent-card accent-blue"><h3>Scout</h3><p>Reads resumes, extracts strengths and gaps, and rewrites the placement narrative around evidence.</p></article>
+        <article class="glass agent-card accent-green"><h3>Matcher</h3><p>Finds role fit, scores shortlist probability, and explains missing capabilities blocking interviews.</p></article>
+        <article class="glass agent-card accent-amber"><h3>Planner</h3><p>Turns insight into a concrete multi-week prep plan with role-aware priorities.</p></article>
+        <article class="glass agent-card accent-red"><h3>Interviewer</h3><p>Generates mock interview questions, critiques answers, and evolves a coaching report in real time.</p></article>
+        <article class="glass agent-card accent-ink"><h3>Watchdog</h3><p>Monitors readiness risk and alerts the TPC when intervention is needed before placement windows close.</p></article>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/landing.js"></script>
+</body>
+</html>

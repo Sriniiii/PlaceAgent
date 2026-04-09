@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PlaceAgent | HR Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="noise"></div>
+  <header class="topbar">
+    <a class="brand brand-link" href="/">
+      <span class="brand-mark"></span>
+      <span>PlaceAgent</span>
+    </a>
+    <nav class="nav">
+      <a href="/">Landing</a>
+      <a href="/student">Student</a>
+      <a href="/tpc">TPC</a>
+      <a href="/hr">HR</a>
+    </nav>
+  </header>
+
+  <main class="page-shell">
+    <section class="section compact-hero">
+      <div class="section-head">
+        <span class="eyebrow">Company HR Portal</span>
+        <h2>Upload job descriptions and get AI-ranked shortlists</h2>
+      </div>
+      <div id="ai-banner" class="ai-banner"></div>
+    </section>
+    <section class="section dashboard">
+      <div class="dashboard-grid">
+        <aside class="glass student-list">
+          <div class="panel-title">Upload Job Description</div>
+          <form id="jd-form" class="onboarding-form">
+            <input type="text" name="company_name" placeholder="Company name" required />
+            <input type="text" name="role_title" placeholder="Role title" required />
+            <textarea name="requirements" rows="10" placeholder="Paste the job description or required skills..." required></textarea>
+            <button class="btn btn-primary" type="submit">Generate Shortlist</button>
+          </form>
+          <div class="panel-title">Uploaded JDs</div>
+          <div id="jd-list" class="stack-list"></div>
+        </aside>
+        <section class="glass student-detail">
+          <div class="panel-title">Shortlist Results</div>
+          <div id="shortlist-output" class="stack-list"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+  <script src="/static/hr.js"></script>
+</body>
+</html>

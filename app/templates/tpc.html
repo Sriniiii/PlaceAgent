@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PlaceAgent | TPC Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="noise"></div>
+  <header class="topbar">
+    <a class="brand brand-link" href="/">
+      <span class="brand-mark"></span>
+      <span>PlaceAgent</span>
+    </a>
+    <nav class="nav">
+      <a href="/">Landing</a>
+      <a href="/student">Student</a>
+      <a href="/tpc">TPC</a>
+    </nav>
+  </header>
+
+  <main class="page-shell">
+    <section class="section compact-hero">
+      <div class="section-head">
+        <span class="eyebrow">TPC Command Center</span>
+        <h2>Live alerts, cohort readiness, and autonomous watchdog operations</h2>
+      </div>
+      <div id="ai-banner" class="ai-banner"></div>
+      <div id="hero-stats" class="hero-stats"></div>
+    </section>
+
+    <section class="section tpc">
+      <div class="tpc-grid">
+        <div class="glass">
+          <div class="row-head">
+            <div class="panel-title">Active Alerts</div>
+            <button class="btn btn-secondary" id="run-watchdog">Run Watchdog</button>
+          </div>
+          <div id="alerts-list" class="stack-list"></div>
+        </div>
+        <div class="glass">
+          <div class="panel-title">Student Risk Snapshot</div>
+          <div id="student-risk-list" class="stack-list"></div>
+        </div>
+      </div>
+      <div class="tpc-grid tpc-bottom">
+        <div class="glass">
+          <div class="panel-title">Recent Agent Activity</div>
+          <div id="agent-logs" class="stack-list"></div>
+        </div>
+        <div class="glass">
+          <div class="row-head">
+            <div class="panel-title">Analytics And Report</div>
+            <button class="btn btn-secondary" id="generate-report">Generate Report</button>
+          </div>
+          <div id="analytics-panel" class="stack-list"></div>
+          <pre id="report-output" class="report-output"></pre>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/tpc.js"></script>
+</body>
+</html>
