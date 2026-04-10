@@ -210,6 +210,65 @@ async function loadChatHistory(studentId) {
   `).join("") || "No chat yet. Ask the mentor something.";
 }
 
+function appendChatMessage(role, content = "") {
+  const history = qs("#chat-history");
+  if (!history) return null;
+  if (history.textContent === "No chat yet. Ask the mentor something.") {
+    history.innerHTML = "";
+  }
+  const line = document.createElement("p");
+  const label = role === "assistant" ? "Mentor" : "You";
+  line.innerHTML = `<strong>${label}:</strong> <span></span>`;
+  line.querySelector("span").textContent = content;
+  history.appendChild(line);
+  history.scrollTop = history.scrollHeight;
+  return line.querySelector("span");
+}
+
+async function fallbackChatPost(message) {
+  const formData = new FormData();
+  formData.append("student_id", state.selectedStudentId);
+  formData.append("message", message);
+  const response = await apiFetch("/api/chat", { method: "POST", body: formData });
+  const result = await response.json();
+  qs("#chat-history").innerHTML = result.history.map((msg) => `
+    <p><strong>${msg.role === "assistant" ? "Mentor" : "You"}:</strong> ${msg.content}</p>
+  `).join("");
+}
+
+async function streamChat(message, assistantTarget) {
+  const response = await fetch(
+    `/api/chat/stream?student_id=${encodeURIComponent(state.selectedStudentId)}&message=${encodeURIComponent(message)}`,
+    { headers: { Accept: "text/event-stream" } }
+  );
+  if (!response.ok || !response.body) {
+    throw new Error(`Request failed (${response.status})`);
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split("\n\n");
+    buffer = events.pop() || "";
+    for (const event of events) {
+      const payload = event
+        .split("\n")
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice(5).trimStart())
+        .join("\n");
+      if (!payload) continue;
+      if (payload === "[DONE]") {
+        return;
+      }
+      assistantTarget.textContent += payload;
+      qs("#chat-history").scrollTop = qs("#chat-history").scrollHeight;
+    }
+  }
+}
+
 async function refreshStudent() {
   if (!state.selectedStudentId) return;
   const response = await apiFetch(`/api/students/${state.selectedStudentId}`);
@@ -352,16 +411,20 @@ async function handleChat(event) {
   if (!state.selectedStudentId) return;
   const message = qs("#chat-message").value.trim();
   if (!message) return;
-  const formData = new FormData();
-  formData.append("student_id", state.selectedStudentId);
-  formData.append("message", message);
   try {
-    const response = await apiFetch("/api/chat", { method: "POST", body: formData });
-    const result = await response.json();
     qs("#chat-message").value = "";
-    qs("#chat-history").innerHTML = result.history.map((msg) => `
-      <p><strong>${msg.role === "assistant" ? "Mentor" : "You"}:</strong> ${msg.content}</p>
-    `).join("");
+    appendChatMessage("user", message);
+    const assistantTarget = appendChatMessage("assistant", "");
+    if (!assistantTarget || !window.fetch || !window.ReadableStream || !window.TextDecoder) {
+      await fallbackChatPost(message);
+      return;
+    }
+    try {
+      await streamChat(message, assistantTarget);
+      await loadChatHistory(state.selectedStudentId);
+    } catch {
+      await fallbackChatPost(message);
+    }
   } catch (error) {
     setStatus(error.message, true);
   }

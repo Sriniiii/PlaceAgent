@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
 import re
+from typing import AsyncIterator
 from datetime import datetime
 
 import fitz
+import httpx
 
 from app.llm import StructuredLLM
 from app.models import Alert, ChatMessage, InterviewTurn, JobDescription, MatchResult, ShortlistCandidate, Student, TaskItem, TpcAnalytics, WeeklyTask
@@ -511,6 +514,78 @@ class MentorAgent(BaseAgent):
             )
         )
         return payload.get("reply", fallback()["reply"])
+
+    async def reply_stream(self, student: Student, history: list[ChatMessage], user_message: str) -> AsyncIterator[str]:
+        def fallback() -> str:
+            next_focus = student.improvement_priorities[0] if student.improvement_priorities else "completing this week's tasks"
+            strongest = student.strengths[0] if student.strengths else "building resume impact and mock interview consistency"
+            return (
+                f"For {student.name}, focus next on {next_focus}. "
+                f"Your strongest direction right now is {strongest}."
+            )
+
+        if not self.llm.enabled or not self.llm.api_key:
+            self.last_ai_enabled = False
+            self.last_source = "fallback"
+            for token in fallback().split():
+                yield token + " "
+            return
+
+        try:
+            async with httpx.AsyncClient(timeout=45) as client:
+                async with client.stream(
+                    "POST",
+                    f"{self.llm.base_url}/{self.llm.model}:streamGenerateContent",
+                    params={"alt": "sse"},
+                    headers={
+                        "Content-Type": "application/json",
+                        "x-goog-api-key": self.llm.api_key,
+                    },
+                    json={
+                        "contents": [
+                            {
+                                "role": "user",
+                                "parts": [
+                                    {
+                                        "text": (
+                                            "You are CoachAgent, a supportive but sharp placement mentor.\n\n"
+                                            f"Student: {student.model_dump_json()}\n"
+                                            f"Recent history: {[msg.model_dump() for msg in history[-6:]]}\n"
+                                            f"Student question: {user_message}\n"
+                                            "Reply in plain text, be concise, actionable, and placement-focused."
+                                        )
+                                    }
+                                ],
+                            }
+                        ],
+                        "generationConfig": {
+                            "temperature": 0.4,
+                        },
+                    },
+                ) as response:
+                    response.raise_for_status()
+                    self.last_ai_enabled = True
+                    self.last_source = self.llm.model
+                    async for line in response.aiter_lines():
+                        if not line or not line.startswith("data:"):
+                            continue
+                        payload = line[5:].strip()
+                        if not payload or payload == "[DONE]":
+                            continue
+                        try:
+                            data = json.loads(payload)
+                        except Exception:
+                            continue
+                        for part in data.get("candidates", [{}])[0].get("content", {}).get("parts", []):
+                            text = part.get("text")
+                            if text:
+                                yield text
+                    return
+        except Exception:
+            self.last_ai_enabled = False
+            self.last_source = "fallback"
+            for token in fallback().split():
+                yield token + " "
 
 
 class InsightAgent(BaseAgent):

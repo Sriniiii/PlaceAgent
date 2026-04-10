@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
@@ -261,6 +262,27 @@ class PlaceAgentStore:
 
     def chat_history(self, student_id: str) -> list[ChatMessage]:
         return self.chats.get(student_id, [])
+
+    async def chat_stream(self, student_id: str, message: str) -> AsyncIterator[str]:
+        student = self.get_student(student_id)
+        student.last_login_at = datetime.now()
+        history = self.chats.setdefault(student_id, [])
+        user_msg = ChatMessage(id=str(uuid.uuid4()), student_id=student_id, role="user", content=message, created_at=datetime.now())
+        assembled: list[str] = []
+        async for chunk in self.mentor.reply_stream(student, history + [user_msg], message):
+            assembled.append(chunk)
+            yield chunk
+        assistant_msg = ChatMessage(
+            id=str(uuid.uuid4()),
+            student_id=student_id,
+            role="assistant",
+            content="".join(assembled).strip(),
+            created_at=datetime.now(),
+        )
+        history.append(user_msg)
+        history.append(assistant_msg)
+        self.persist_student(student)
+        self.persist_chat_history(student_id)
 
     async def start_interview(self, student_id: str, tone: str = "supportive") -> InterviewSession:
         student = self.get_student(student_id)

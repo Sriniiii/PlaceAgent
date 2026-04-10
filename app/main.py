@@ -7,6 +7,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sse_starlette.sse import EventSourceResponse
 
 from app.services import PlaceAgentStore
 
@@ -148,6 +149,22 @@ async def chat(request: Request, student_id: str = Form(...), message: str = For
         return await get_store(request).chat(student_id, message)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Student not found") from exc
+
+
+@app.get("/api/chat/stream")
+async def chat_stream(request: Request, student_id: str, message: str):
+    store = get_store(request)
+    try:
+        store.get_student(student_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Student not found") from exc
+
+    async def event_generator():
+        async for chunk in store.chat_stream(student_id, message):
+            yield {"data": chunk}
+        yield {"data": "[DONE]"}
+
+    return EventSourceResponse(event_generator())
 
 
 @app.get("/api/chat/history/{student_id}")

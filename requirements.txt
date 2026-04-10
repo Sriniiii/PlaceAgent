@@ -3,6 +3,8 @@ uvicorn
 jinja2
 python-multipart
 httpx
+websockets
+sse-starlette
 apscheduler
 pydantic-settings
 python-dotenv
