@@ -354,6 +354,10 @@ textarea { resize: vertical; }
   background: rgba(255, 255, 255, 0.04);
   color: #dcefff;
 }
+.voice-error {
+  border: 1px solid rgba(255, 113, 113, 0.28);
+  background: rgba(255, 113, 113, 0.08);
+}
 .report-output {
   white-space: pre-wrap;
   color: #dff4ff;

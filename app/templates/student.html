@@ -121,10 +121,21 @@
                   <option value="supportive">Supportive</option>
                   <option value="challenging">Challenging</option>
                 </select>
+                <select id="interview-mode" name="mode">
+                  <option value="text">Text</option>
+                  <option value="voice">Voice</option>
+                </select>
                 <button class="btn btn-secondary" type="submit">Start Interview</button>
               </form>
               <div class="interview-box">
                 <div id="interview-question" class="question-box">Start a session to generate the first question.</div>
+                <div id="voice-status" class="feedback-box" hidden>Voice mode is ready.</div>
+                <div id="voice-transcript" class="feedback-box" hidden>No transcript yet.</div>
+                <div class="cta-row" id="voice-controls" hidden>
+                  <button class="btn btn-secondary" id="voice-toggle" type="button">Start Listening</button>
+                  <button class="btn btn-secondary" id="voice-submit" type="button">Submit Voice Answer</button>
+                  <button class="btn btn-secondary" id="voice-replay" type="button">Replay Question</button>
+                </div>
                 <form id="interview-reply-form">
                   <textarea id="interview-answer" rows="5" placeholder="Answer the interview question here..."></textarea>
                   <button class="btn btn-primary" type="submit">Send Answer</button>

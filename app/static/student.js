@@ -3,6 +3,11 @@ const state = {
   ai: null,
   selectedStudentId: null,
   activeSessionId: null,
+  interviewMode: "text",
+  voiceSupported: false,
+  voiceListening: false,
+  finalTranscript: "",
+  recognition: null,
 };
 
 function qs(selector) {
@@ -36,6 +41,102 @@ function setButtonLoading(button, loading, loadingText = "Working...") {
   }
   button.disabled = loading;
   button.textContent = loading ? loadingText : button.dataset.defaultText;
+}
+
+function getSpeechRecognition() {
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+function setVoiceStatus(message, isError = false) {
+  const el = qs("#voice-status");
+  el.hidden = false;
+  el.className = `feedback-box ${isError ? "voice-error" : ""}`.trim();
+  el.textContent = message;
+}
+
+function renderVoiceTranscript(text) {
+  const el = qs("#voice-transcript");
+  el.hidden = false;
+  el.textContent = text || "No transcript yet.";
+}
+
+function stopVoiceRecognition() {
+  if (state.recognition && state.voiceListening) {
+    state.recognition.stop();
+  }
+  state.voiceListening = false;
+  const button = qs("#voice-toggle");
+  if (button) {
+    button.textContent = "Start Listening";
+  }
+}
+
+function speakText(text) {
+  if (!("speechSynthesis" in window) || !text) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 1;
+  utterance.pitch = 1;
+  window.speechSynthesis.speak(utterance);
+}
+
+function updateInterviewModeUi() {
+  const isVoice = state.interviewMode === "voice";
+  qs("#voice-controls").hidden = !isVoice;
+  qs("#voice-status").hidden = !isVoice;
+  qs("#voice-transcript").hidden = !isVoice;
+  qs("#interview-answer").placeholder = isVoice
+    ? "Voice transcript will appear here. You can still edit before sending."
+    : "Answer the interview question here...";
+  if (!isVoice) {
+    stopVoiceRecognition();
+  }
+}
+
+function initialiseVoiceRecognition() {
+  const Recognition = getSpeechRecognition();
+  state.voiceSupported = Boolean(Recognition);
+  if (!Recognition) {
+    setVoiceStatus("Voice mode is not supported in this browser. Use Chrome or Edge for microphone input.", true);
+    return;
+  }
+  const recognition = new Recognition();
+  recognition.lang = "en-IN";
+  recognition.interimResults = true;
+  recognition.continuous = true;
+  recognition.onstart = () => {
+    state.voiceListening = true;
+    qs("#voice-toggle").textContent = "Stop Listening";
+    setVoiceStatus("Listening to your answer...");
+  };
+  recognition.onend = () => {
+    state.voiceListening = false;
+    qs("#voice-toggle").textContent = "Start Listening";
+    setVoiceStatus("Microphone stopped. Review the transcript or submit it.");
+  };
+  recognition.onerror = (event) => {
+    state.voiceListening = false;
+    qs("#voice-toggle").textContent = "Start Listening";
+    setVoiceStatus(`Voice input error: ${event.error}`, true);
+  };
+  recognition.onresult = (event) => {
+    let finalText = state.finalTranscript;
+    let interimText = "";
+    for (let index = event.resultIndex; index < event.results.length; index += 1) {
+      const transcript = event.results[index][0].transcript;
+      if (event.results[index].isFinal) {
+        finalText += `${transcript} `;
+      } else {
+        interimText += transcript;
+      }
+    }
+    state.finalTranscript = finalText.trim();
+    const combined = `${state.finalTranscript} ${interimText}`.trim();
+    qs("#interview-answer").value = combined;
+    renderVoiceTranscript(combined);
+  };
+  state.recognition = recognition;
+  setVoiceStatus("Voice mode is ready. Start an interview and then use the microphone controls.");
 }
 
 function renderAiBanner(ai) {
@@ -145,6 +246,7 @@ function renderSelectedStudent() {
   renderTasks(student);
   loadProgress(student.id);
   loadChatHistory(student.id);
+  updateInterviewModeUi();
 }
 
 function renderTasks(student) {
@@ -299,6 +401,10 @@ async function handleInterviewStart(event) {
   if (!state.selectedStudentId) return;
   const formData = new FormData();
   formData.append("tone", qs("#interview-tone").value);
+  state.interviewMode = qs("#interview-mode").value;
+  state.finalTranscript = "";
+  renderVoiceTranscript("");
+  updateInterviewModeUi();
 
   try {
     const response = await apiFetch(`/api/students/${state.selectedStudentId}/interview/start`, {
@@ -310,6 +416,10 @@ async function handleInterviewStart(event) {
     qs("#interview-question").textContent = session.current_question;
     qs("#interview-feedback").innerHTML = `<div class="list-item">Interview session started in ${session.tone} mode.</div>`;
     setStatus("Interview started.");
+    if (state.interviewMode === "voice") {
+      speakText(session.current_question);
+      setVoiceStatus("Voice interview started. Use Start Listening to answer with your microphone.");
+    }
   } catch (error) {
     setStatus(error.message, true);
   }
@@ -331,6 +441,8 @@ async function handleInterviewReply(event) {
     });
     const result = await response.json();
     qs("#interview-answer").value = "";
+    state.finalTranscript = "";
+    renderVoiceTranscript("");
     qs("#interview-question").textContent = result.next_question || "Interview completed. Start a new session anytime.";
     qs("#interview-feedback").innerHTML = `
       <div class="list-item">
@@ -342,6 +454,10 @@ async function handleInterviewReply(event) {
       </div>
     `;
     await refreshStudent();
+    if (state.interviewMode === "voice" && result.next_question) {
+      speakText(result.next_question);
+      setVoiceStatus("Next question is ready. Start listening when you want to answer.");
+    }
   } catch (error) {
     setStatus(error.message, true);
   }
@@ -374,6 +490,37 @@ function bindForms() {
   qs("#chat-form").addEventListener("submit", handleChat);
   qs("#start-interview-form").addEventListener("submit", handleInterviewStart);
   qs("#interview-reply-form").addEventListener("submit", handleInterviewReply);
+  qs("#interview-mode").addEventListener("change", (event) => {
+    state.interviewMode = event.target.value;
+    updateInterviewModeUi();
+  });
+  qs("#voice-toggle").addEventListener("click", () => {
+    if (!state.voiceSupported || !state.recognition) {
+      setVoiceStatus("Voice input is not available in this browser.", true);
+      return;
+    }
+    if (!state.activeSessionId) {
+      setVoiceStatus("Start an interview session before using voice mode.", true);
+      return;
+    }
+    if (state.voiceListening) {
+      stopVoiceRecognition();
+      return;
+    }
+    state.finalTranscript = qs("#interview-answer").value.trim();
+    state.recognition.start();
+  });
+  qs("#voice-submit").addEventListener("click", async () => {
+    if (!qs("#interview-answer").value.trim()) {
+      setVoiceStatus("Record or type an answer before submitting.", true);
+      return;
+    }
+    stopVoiceRecognition();
+    await handleInterviewReply(new Event("submit"));
+  });
+  qs("#voice-replay").addEventListener("click", () => {
+    speakText(qs("#interview-question").textContent);
+  });
   qs("#show-add-student").addEventListener("click", () => {
     qs("#student-create-inline").hidden = false;
   });
@@ -383,5 +530,6 @@ function bindForms() {
   });
 }
 
+initialiseVoiceRecognition();
 bindForms();
 refreshBootstrap().catch((error) => setStatus(error.message, true));
