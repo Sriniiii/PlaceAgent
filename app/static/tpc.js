@@ -103,26 +103,58 @@ function renderLogs() {
   `).join("");
 }
 
-function renderAnalytics(analytics) {
-  const heatmap = Object.entries(analytics.readiness_by_branch).map(([branch, value]) => `
-    <div class="list-item">
-      <strong>${branch}</strong>
-      <div class="heat-track"><span class="heat-fill" style="width:${value}%"></span></div>
-      <p>${value}% readiness</p>
-    </div>
-  `).join("") || `<div class="list-item">No data yet</div>`;
+function heatColor(score) {
+  if (score >= 70) return "#10B981";
+  if (score >= 50) return "#F59E0B";
+  return "#E24B4A";
+}
 
-  qs("#analytics-panel").innerHTML = `
-    <div class="list-item">
-      <strong>Branch Distribution</strong>
-      <p>${Object.entries(analytics.branch_distribution).map(([k, v]) => `${k}: ${v}`).join(" | ") || "No data yet"}</p>
-    </div>
-    <div class="list-item"><strong>Readiness Heatmap</strong></div>
-    ${heatmap}
-    <div class="list-item">
-      <strong>Prediction Scores</strong>
-      <p>${Object.entries(analytics.prediction_scores).map(([k, v]) => `${k}: ${v}`).join(" | ") || "No data yet"}</p>
-    </div>
+function renderAnalytics(analytics) {
+  const panel = qs("#analytics-panel");
+  const readinessEntries = Object.entries(analytics.readiness_by_branch || {});
+  const predictionEntries = Object.entries(analytics.prediction_scores || {}).sort((a, b) => b[1] - a[1]);
+
+  const branchSection = readinessEntries.length
+    ? readinessEntries.map(([branch, score]) => {
+        const color = heatColor(score);
+        const count = analytics.branch_distribution?.[branch] ?? 0;
+        return `
+          <div class="list-item">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; gap:12px;">
+              <strong>${branch}</strong>
+              <span style="font-size:13px; color:${color}; font-weight:700;">${score}%</span>
+            </div>
+            <div class="heat-track">
+              <span class="heat-fill" style="width:${score}%; background:${color};"></span>
+            </div>
+            <p style="font-size:12px; color:#94A3B8; margin-top:8px;">${count} student${count === 1 ? "" : "s"}</p>
+          </div>
+        `;
+      }).join("")
+    : `<div class="list-item">No branch readiness data yet.</div>`;
+
+  const predictionSection = predictionEntries.length
+    ? predictionEntries.map(([name, score]) => {
+        const color = heatColor(score);
+        return `
+          <div class="list-item">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="width:96px; font-size:12px; color:#94A3B8;">${name}</span>
+              <div class="heat-track" style="flex:1;">
+                <span class="heat-fill" style="width:${score}%; background:${color};"></span>
+              </div>
+              <span style="font-size:12px; font-weight:700; color:${color}; min-width:32px; text-align:right;">${score}</span>
+            </div>
+          </div>
+        `;
+      }).join("")
+    : `<div class="list-item">No prediction scores yet.</div>`;
+
+  panel.innerHTML = `
+    <div class="panel-title">Readiness by branch</div>
+    ${branchSection}
+    <div class="panel-title" style="margin-top:1.2rem;">Placement prediction scores</div>
+    ${predictionSection}
   `;
 }
 
