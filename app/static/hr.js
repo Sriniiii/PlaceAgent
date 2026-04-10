@@ -206,8 +206,9 @@ async function loadShortlist(jdId) {
 
 async function handleJdSubmit(event) {
   event.preventDefault();
-  const formData = new FormData(event.currentTarget);
-  const submitButton = event.currentTarget.querySelector('button[type="submit"]');
+  const form = event.currentTarget;
+  const formData = new FormData(form);
+  const submitButton = form.querySelector('button[type="submit"]');
   try {
     setStatus("Uploading JD and ranking candidates...");
     setButtonLoading(submitButton, true, "Generating...");
@@ -216,7 +217,7 @@ async function handleJdSubmit(event) {
     hrState.jds = [jd, ...hrState.jds];
     renderHrStats(hrState.stats);
     renderJds();
-    event.currentTarget.reset();
+    form.reset();
     await loadShortlist(jd.id);
     setStatus("Shortlist generated.");
   } catch (error) {
@@ -232,15 +233,16 @@ async function handleInvite(event) {
     setStatus("Select a candidate and a job description before sending an invite.", true);
     return;
   }
-  const submitButton = event.currentTarget.querySelector('button[type="submit"]');
+  const form = event.currentTarget;
+  const submitButton = form.querySelector('button[type="submit"]');
   setButtonLoading(submitButton, true, "Sending...");
   try {
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(form);
     formData.append("student_id", hrState.selectedStudentId);
     formData.append("jd_id", hrState.selectedJdId);
     await apiFetch("/api/hr/invite", { method: "POST", body: formData });
     setStatus("Invite sent successfully.");
-    event.currentTarget.reset();
+    form.reset();
   } catch (error) {
     setStatus(error.message, true);
   } finally {
