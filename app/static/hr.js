@@ -5,6 +5,7 @@ const hrState = {
   selectedJdId: null,
   selectedStudentId: null,
   stats: null,
+  matchExplanations: {},
 };
 
 function qs(selector) {
@@ -185,15 +186,26 @@ async function loadShortlist(jdId) {
         </div>
         <p style="font-size:12px; color:#94A3B8;">${candidate.branch} · ${candidate.graduation_year} · Readiness ${candidate.readiness_score}%</p>
         <p style="font-size:12px;">${candidate.reason}</p>
-        <button class="btn btn-secondary btn-small shortlist-view" data-student-id="${candidate.student_id}" type="button">View Profile</button>
+        <div class="cta-row">
+          <button class="btn btn-secondary btn-small shortlist-view" data-student-id="${candidate.student_id}" type="button">View Profile</button>
+          <button class="btn btn-secondary btn-small explain-match" data-student-id="${candidate.student_id}" type="button">Explain This Match</button>
+        </div>
+        <div class="feedback-box" id="match-explanation-${candidate.student_id}" hidden></div>
       </div>
     `).join("") || `<div class="list-item">No candidates matched yet.</div>`;
     document.querySelectorAll(".shortlist-card, .shortlist-view").forEach((element) => {
       element.addEventListener("click", (event) => {
+        if (event.target.classList.contains("explain-match")) return;
         const studentId = event.currentTarget.dataset.studentId;
         if (studentId) {
           loadCandidateDetail(studentId);
         }
+      });
+    });
+    document.querySelectorAll(".explain-match").forEach((button) => {
+      button.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        await handleExplainMatch(button);
       });
     });
     if (hrState.selectedStudentId) {
@@ -201,6 +213,42 @@ async function loadShortlist(jdId) {
     }
   } catch (error) {
     setStatus(error.message, true);
+  }
+}
+
+async function handleExplainMatch(button) {
+  if (!hrState.selectedJdId) {
+    setStatus("Select a job description first.", true);
+    return;
+  }
+  const studentId = button.dataset.studentId;
+  const output = qs(`#match-explanation-${studentId}`);
+  if (!studentId || !output) return;
+  const cacheKey = `${hrState.selectedJdId}:${studentId}`;
+  if (hrState.matchExplanations[cacheKey]) {
+    output.hidden = false;
+    output.innerHTML = `<strong>Fit explanation</strong><p>${hrState.matchExplanations[cacheKey].explanation}</p>`;
+    return;
+  }
+  setButtonLoading(button, true, "Explaining...");
+  output.hidden = false;
+  output.innerHTML = "Generating recruiter-style fit analysis...";
+  try {
+    const formData = new FormData();
+    formData.append("student_id", studentId);
+    formData.append("jd_id", hrState.selectedJdId);
+    const response = await apiFetch("/api/hr/explain-match", { method: "POST", body: formData });
+    const result = await response.json();
+    hrState.matchExplanations[cacheKey] = result;
+    output.innerHTML = `
+      <strong>Fit explanation <span class="badge ${result.ai_enabled ? "" : "offline"}">${result.source}</span></strong>
+      <p>${result.explanation}</p>
+    `;
+  } catch (error) {
+    output.innerHTML = `<p>${error.message}</p>`;
+    setStatus(error.message, true);
+  } finally {
+    setButtonLoading(button, false);
   }
 }
 

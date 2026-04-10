@@ -234,3 +234,16 @@ async def send_invite(
         return store.create_invite(student_id, jd_id, interview_date, message)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Student not found") from exc
+
+
+@app.post("/api/hr/explain-match")
+async def explain_match(
+    request: Request,
+    student_id: str = Form(...),
+    jd_id: str = Form(...),
+):
+    store = get_store(request)
+    try:
+        return await store.explain_match(student_id, jd_id)
+    except (KeyError, StopIteration) as exc:
+        raise HTTPException(status_code=404, detail="Student or job description not found") from exc

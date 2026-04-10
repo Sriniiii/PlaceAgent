@@ -522,6 +522,51 @@ class PlaceAgentStore:
         candidates = await self.insight.shortlist(jd, self.list_students())
         return ShortlistResult(jd=jd, candidates=candidates, ai_enabled=self.insight.last_ai_enabled, source=self.insight.last_source)
 
+    async def explain_match(self, student_id: str, jd_id: str) -> dict:
+        student = self.get_student(student_id)
+        jd = next(item for item in self.job_descriptions if item.id == jd_id)
+
+        def fallback() -> dict:
+            jd_skills = {skill.lower() for skill in jd.extracted_skills}
+            matched = [skill for skill in student.skills if skill.lower() in jd_skills]
+            missing = [skill for skill in jd.extracted_skills if skill not in student.skills]
+            strengths = ", ".join(matched[:4]) if matched else "general technical fundamentals"
+            gaps = ", ".join(missing[:4]) if missing else "no major hard-skill blockers"
+            return {
+                "explanation": (
+                    f"{student.name} is a {'strong' if len(matched) >= 2 else 'partial'} fit for {jd.role_title} at {jd.company_name} because the profile already shows "
+                    f"{strengths}. The main gaps are {gaps}. To close the gap faster, the candidate should focus on the missing requirements, turn existing projects into role-aligned proof points, "
+                    f"and show clearer interview-ready evidence around impact and ownership."
+                )
+            }
+
+        result = await self.llm.generate_json(
+            system_prompt=(
+                "You are a hiring analyst helping an HR team understand why a student does or does not fit a job description. "
+                "Return only valid JSON."
+            ),
+            user_prompt=(
+                f"Job description: {jd.model_dump_json()}\n"
+                f"Student profile: {student.model_dump_json()}\n"
+                "Write one plain-English paragraph explaining why this student is or is not a good fit, what they already bring, what is missing, "
+                "and what it would take to close the gap. Return JSON with key explanation."
+            ),
+            fallback=fallback,
+        )
+        explanation = result.payload.get("explanation") or fallback()["explanation"]
+        self.log(
+            "insight",
+            "Company-student fit explained",
+            f"Generated a match explanation for {student.name} against {jd.role_title} at {jd.company_name} via {result.source}.",
+        )
+        return {
+            "student_id": student_id,
+            "jd_id": jd_id,
+            "explanation": explanation,
+            "ai_enabled": result.ai_enabled,
+            "source": result.source,
+        }
+
     def create_invite(self, student_id: str, jd_id: str, interview_date: str, message: str) -> dict:
         student = self.get_student(student_id)
         jd = next((item for item in self.job_descriptions if item.id == jd_id), None)
