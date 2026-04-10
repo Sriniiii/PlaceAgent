@@ -5,6 +5,15 @@ const state = {
   activeSessionId: null,
 };
 
+const voiceState = {
+  ws: null,
+  captureCtx: null,
+  playCtx: null,
+  processor: null,
+  stream: null,
+  nextPlayTime: 0,
+};
+
 function qs(selector) {
   return document.querySelector(selector);
 }
@@ -44,6 +53,245 @@ function renderAiBanner(ai) {
   el.innerHTML = ai.enabled
     ? `Student intelligence is running in live AI mode with <strong>${ai.model}</strong>.`
     : `Student intelligence is in fallback mode. Add <code>GEMINI_API_KEY</code> to enable live AI coaching.`;
+}
+
+function voiceBrowserSupported() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return false;
+  try {
+    const test = new AC();
+    const ok = typeof test.createScriptProcessor === "function";
+    test.close();
+    if (!ok) return false;
+  } catch {
+    return false;
+  }
+  return (
+    typeof MediaRecorder !== "undefined" &&
+    typeof WebSocket !== "undefined" &&
+    navigator.mediaDevices &&
+    typeof navigator.mediaDevices.getUserMedia === "function"
+  );
+}
+
+function updateVoiceInterviewVisibility() {
+  const block = qs("#voice-interview-block");
+  const fallback = qs("#voice-interview-fallback");
+  const ui = qs("#voice-interview-ui");
+  if (!block || !fallback || !ui) return;
+  if (!state.ai || !state.ai.enabled) {
+    block.hidden = true;
+    return;
+  }
+  block.hidden = false;
+  if (!voiceBrowserSupported()) {
+    fallback.hidden = false;
+    ui.hidden = true;
+    fallback.textContent =
+      "Voice interviews need WebSocket, the MediaRecorder API, AudioContext capture, and microphone access. Use the text mock interview below, or try a recent desktop browser.";
+    return;
+  }
+  fallback.hidden = true;
+  ui.hidden = false;
+}
+
+function resampleFloat32(input, inputRate, outputRate) {
+  if (inputRate === outputRate) {
+    return Float32Array.from(input);
+  }
+  const ratio = inputRate / outputRate;
+  const length = Math.floor(input.length / ratio);
+  const out = new Float32Array(length);
+  for (let i = 0; i < length; i++) {
+    const srcIndex = i * ratio;
+    const j = Math.floor(srcIndex);
+    const f = srcIndex - j;
+    const a = input[j] || 0;
+    const b = input[j + 1] || a;
+    out[i] = a + (b - a) * f;
+  }
+  return out;
+}
+
+function floatTo16BitPCM(input) {
+  const buffer = new Int16Array(input.length);
+  for (let i = 0; i < input.length; i++) {
+    const s = Math.max(-1, Math.min(1, input[i]));
+    buffer[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+  }
+  return buffer;
+}
+
+function arrayBufferToBase64(buffer) {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+function appendVoiceTranscript(role, text) {
+  const el = qs("#voice-transcript");
+  if (!el) return;
+  const line = document.createElement("p");
+  const label = role === "user" ? "You" : "Interviewer";
+  line.innerHTML = `<strong>${label}:</strong> ${text}`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+function scheduleVoicePlayback(b64, mimeType) {
+  const ctx = voiceState.playCtx;
+  if (!ctx) return;
+  const rateMatch = /rate=(\d+)/.exec(mimeType || "");
+  const sampleRate = rateMatch ? parseInt(rateMatch[1], 10) : 24000;
+  const raw = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const sampleCount = Math.floor(raw.byteLength / 2);
+  if (sampleCount === 0) return;
+  const samples = new Int16Array(raw.buffer, raw.byteOffset, sampleCount);
+  const floats = new Float32Array(samples.length);
+  for (let i = 0; i < samples.length; i++) {
+    floats[i] = samples[i] / 32768;
+  }
+  const buffer = ctx.createBuffer(1, floats.length, sampleRate);
+  buffer.copyToChannel(floats, 0);
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  src.connect(ctx.destination);
+  const now = ctx.currentTime;
+  if (voiceState.nextPlayTime < now) {
+    voiceState.nextPlayTime = now;
+  }
+  src.start(voiceState.nextPlayTime);
+  voiceState.nextPlayTime += buffer.duration;
+}
+
+function renderInterviewScorecard(result) {
+  const session = result.session;
+  return `
+    <div class="list-item">
+      <strong>Feedback <span class="badge ${result.ai_enabled ? "" : "offline"}">${result.source}</span></strong>
+      <p>${result.latest_feedback}</p>
+      <p><strong>Resources:</strong> ${result.recommended_resources.join(" | ")}</p>
+      <p><strong>Current score:</strong> ${session.overall_score}%</p>
+      <p><strong>Report:</strong> ${session.report_summary || "Interview report will grow as the session continues."}</p>
+    </div>
+  `;
+}
+
+function teardownVoiceInterview() {
+  if (voiceState.processor) {
+    try {
+      voiceState.processor.disconnect();
+    } catch {
+      /* ignore */
+    }
+    voiceState.processor = null;
+  }
+  if (voiceState.stream) {
+    voiceState.stream.getTracks().forEach((t) => t.stop());
+    voiceState.stream = null;
+  }
+  if (voiceState.captureCtx) {
+    voiceState.captureCtx.close().catch(() => {});
+    voiceState.captureCtx = null;
+  }
+  if (voiceState.playCtx) {
+    voiceState.playCtx.close().catch(() => {});
+    voiceState.playCtx = null;
+  }
+  if (voiceState.ws) {
+    const w = voiceState.ws;
+    voiceState.ws = null;
+    w.onclose = null;
+    w.onmessage = null;
+    w.onerror = null;
+    if (w.readyState === WebSocket.OPEN) {
+      w.close();
+    }
+  }
+  voiceState.nextPlayTime = 0;
+  const startBtn = qs("#voice-interview-start");
+  const endBtn = qs("#voice-interview-end");
+  if (startBtn) startBtn.disabled = false;
+  if (endBtn) endBtn.disabled = true;
+}
+
+async function startPcmCapture(ws) {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  voiceState.stream = stream;
+  const captureCtx = new (window.AudioContext || window.webkitAudioContext)();
+  voiceState.captureCtx = captureCtx;
+  await captureCtx.resume();
+  const source = captureCtx.createMediaStreamSource(stream);
+  const processor = captureCtx.createScriptProcessor(4096, 1, 1);
+  voiceState.processor = processor;
+  processor.onaudioprocess = (e) => {
+    if (!voiceState.ws || voiceState.ws.readyState !== WebSocket.OPEN) return;
+    const input = e.inputBuffer.getChannelData(0);
+    const down = resampleFloat32(input, captureCtx.sampleRate, 16000);
+    const pcm = floatTo16BitPCM(down);
+    const b64 = arrayBufferToBase64(pcm.buffer);
+    voiceState.ws.send(JSON.stringify({ type: "pcm", data: b64 }));
+  };
+  const mute = captureCtx.createGain();
+  mute.gain.value = 0;
+  source.connect(processor);
+  processor.connect(mute);
+  mute.connect(captureCtx.destination);
+}
+
+async function startVoiceInterview() {
+  if (!state.selectedStudentId || !voiceBrowserSupported()) return;
+  teardownVoiceInterview();
+  const tone = qs("#voice-interview-tone").value;
+  const wsProto = location.protocol === "https:" ? "wss:" : "ws:";
+  const url = `${wsProto}//${location.host}/ws/students/${state.selectedStudentId}/interview/voice?tone=${encodeURIComponent(tone)}`;
+  const ws = new WebSocket(url);
+  voiceState.ws = ws;
+  qs("#voice-transcript").innerHTML = "";
+  voiceState.nextPlayTime = 0;
+  voiceState.playCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+
+  ws.onmessage = async (ev) => {
+    const msg = JSON.parse(ev.data);
+    if (msg.type === "ready") {
+      await voiceState.playCtx.resume();
+      await startPcmCapture(ws);
+      qs("#voice-interview-start").disabled = true;
+      qs("#voice-interview-end").disabled = false;
+      setStatus("Voice interview connected. Speak when the interviewer prompts you.");
+    }
+    if (msg.type === "audio") {
+      scheduleVoicePlayback(msg.data, msg.mimeType);
+    }
+    if (msg.type === "transcript") {
+      appendVoiceTranscript(msg.role, msg.text);
+    }
+    if (msg.type === "error") {
+      setStatus(msg.message, true);
+      teardownVoiceInterview();
+    }
+    if (msg.type === "completed") {
+      teardownVoiceInterview();
+      qs("#interview-feedback").innerHTML = renderInterviewScorecard(msg.result);
+      await refreshStudent();
+      setStatus("Voice interview scored and saved.");
+    }
+  };
+  ws.onerror = () => {
+    setStatus("Voice WebSocket error.", true);
+  };
+  ws.onclose = () => {
+    teardownVoiceInterview();
+  };
+}
+
+function stopVoiceInterview() {
+  if (voiceState.ws && voiceState.ws.readyState === WebSocket.OPEN) {
+    voiceState.ws.send(JSON.stringify({ type: "end" }));
+  }
 }
 
 function renderStudentList() {
@@ -145,6 +393,7 @@ function renderSelectedStudent() {
   renderTasks(student);
   loadProgress(student.id);
   loadChatHistory(student.id);
+  updateVoiceInterviewVisibility();
 }
 
 function renderTasks(student) {
@@ -226,6 +475,7 @@ async function refreshBootstrap() {
   state.students = data.students;
   state.selectedStudentId = state.selectedStudentId || data.featured_student_id;
   renderAiBanner(data.ai);
+  updateVoiceInterviewVisibility();
   renderStudentMode();
   if (!state.students.length) {
     return;
@@ -332,15 +582,7 @@ async function handleInterviewReply(event) {
     const result = await response.json();
     qs("#interview-answer").value = "";
     qs("#interview-question").textContent = result.next_question || "Interview completed. Start a new session anytime.";
-    qs("#interview-feedback").innerHTML = `
-      <div class="list-item">
-        <strong>Feedback <span class="badge ${result.ai_enabled ? "" : "offline"}">${result.source}</span></strong>
-        <p>${result.latest_feedback}</p>
-        <p><strong>Resources:</strong> ${result.recommended_resources.join(" | ")}</p>
-        <p><strong>Current score:</strong> ${result.session.overall_score}%</p>
-        <p><strong>Report:</strong> ${result.session.report_summary || "Interview report will grow as the session continues."}</p>
-      </div>
-    `;
+    qs("#interview-feedback").innerHTML = renderInterviewScorecard(result);
     await refreshStudent();
   } catch (error) {
     setStatus(error.message, true);
@@ -374,6 +616,10 @@ function bindForms() {
   qs("#chat-form").addEventListener("submit", handleChat);
   qs("#start-interview-form").addEventListener("submit", handleInterviewStart);
   qs("#interview-reply-form").addEventListener("submit", handleInterviewReply);
+  const voiceStart = qs("#voice-interview-start");
+  const voiceEnd = qs("#voice-interview-end");
+  if (voiceStart) voiceStart.addEventListener("click", () => startVoiceInterview().catch((e) => setStatus(e.message, true)));
+  if (voiceEnd) voiceEnd.addEventListener("click", stopVoiceInterview);
   qs("#show-add-student").addEventListener("click", () => {
     qs("#student-create-inline").hidden = false;
   });

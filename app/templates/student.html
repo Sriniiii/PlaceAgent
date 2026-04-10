@@ -116,6 +116,21 @@
                 </form>
               </div>
               <div class="subhead">Mock Interview</div>
+              <div id="voice-interview-block" class="voice-interview-block" hidden>
+                <div id="voice-interview-fallback" class="muted" hidden></div>
+                <div id="voice-interview-ui" hidden>
+                  <div class="cta-row wrap">
+                    <select id="voice-interview-tone" aria-label="Voice interview tone">
+                      <option value="supportive">Supportive (voice)</option>
+                      <option value="challenging">Challenging (voice)</option>
+                    </select>
+                    <button class="btn btn-secondary" type="button" id="voice-interview-start">Voice interview</button>
+                    <button class="btn btn-primary" type="button" id="voice-interview-end" disabled>End voice session</button>
+                  </div>
+                  <div class="subhead small">Live transcript</div>
+                  <div id="voice-transcript" class="feedback-box voice-transcript" aria-live="polite"></div>
+                </div>
+              </div>
               <form id="start-interview-form" class="inline-form">
                 <select id="interview-tone" name="tone">
                   <option value="supportive">Supportive</option>
