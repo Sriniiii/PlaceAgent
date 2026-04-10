@@ -116,21 +116,6 @@
                 </form>
               </div>
               <div class="subhead">Mock Interview</div>
-              <div id="voice-interview-block" class="voice-interview-block" hidden>
-                <div id="voice-interview-fallback" class="muted" hidden></div>
-                <div id="voice-interview-ui" hidden>
-                  <div class="cta-row wrap">
-                    <select id="voice-interview-tone" aria-label="Voice interview tone">
-                      <option value="supportive">Supportive (voice)</option>
-                      <option value="challenging">Challenging (voice)</option>
-                    </select>
-                    <button class="btn btn-secondary" type="button" id="voice-interview-start">Voice interview</button>
-                    <button class="btn btn-primary" type="button" id="voice-interview-end" disabled>End voice session</button>
-                  </div>
-                  <div class="subhead small">Live transcript</div>
-                  <div id="voice-transcript" class="feedback-box voice-transcript" aria-live="polite"></div>
-                </div>
-              </div>
               <form id="start-interview-form" class="inline-form">
                 <select id="interview-tone" name="tone">
                   <option value="supportive">Supportive</option>
@@ -163,6 +148,24 @@
       </div>
     </section>
   </main>
+
+  <div id="mic-modal" class="mic-modal" hidden>
+    <div class="mic-modal-backdrop" data-mic-close></div>
+    <div class="mic-modal-card glass" role="dialog" aria-modal="true" aria-labelledby="mic-modal-title">
+      <div class="panel-title">Microphone Access</div>
+      <h3 id="mic-modal-title">Enable your microphone to answer by voice</h3>
+      <p id="mic-modal-message">PlaceAgent needs microphone access to capture your interview answer.</p>
+      <div class="stack-list mic-steps">
+        <div class="list-item">Click <strong>Allow</strong> in the browser permission prompt when it appears.</div>
+        <div class="list-item">If the browser blocked it earlier, use the lock icon near the address bar and set Microphone to <strong>Allow</strong>.</div>
+        <div class="list-item">After enabling it, come back and continue the interview.</div>
+      </div>
+      <div class="cta-row">
+        <button class="btn btn-primary" id="mic-modal-confirm" type="button">Enable Microphone</button>
+        <button class="btn btn-secondary" id="mic-modal-close" type="button">Close</button>
+      </div>
+    </div>
+  </div>
 
   <script src="/static/student.js"></script>
 </body>

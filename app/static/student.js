@@ -8,6 +8,7 @@ const state = {
   voiceListening: false,
   finalTranscript: "",
   recognition: null,
+  micStream: null,
 };
 
 function qs(selector) {
@@ -71,12 +72,40 @@ function stopVoiceRecognition() {
   }
 }
 
+function showMicModal(message) {
+  const modal = qs("#mic-modal");
+  const messageEl = qs("#mic-modal-message");
+  if (!modal || !messageEl) return;
+  messageEl.textContent = message;
+  modal.hidden = false;
+}
+
+function hideMicModal() {
+  const modal = qs("#mic-modal");
+  if (modal) {
+    modal.hidden = true;
+  }
+}
+
+function stopMicStream() {
+  if (state.micStream) {
+    state.micStream.getTracks().forEach((track) => track.stop());
+    state.micStream = null;
+  }
+}
+
 function speakText(text) {
   if (!("speechSynthesis" in window) || !text) return;
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.rate = 1;
   utterance.pitch = 1;
+  utterance.onstart = () => {
+    setVoiceStatus("Reading the question aloud...");
+  };
+  utterance.onerror = () => {
+    setVoiceStatus("Audio playback was blocked. Use Replay Question again and allow audio if the browser prompts.", true);
+  };
   window.speechSynthesis.speak(utterance);
 }
 
@@ -117,6 +146,16 @@ function initialiseVoiceRecognition() {
   recognition.onerror = (event) => {
     state.voiceListening = false;
     qs("#voice-toggle").textContent = "Start Listening";
+    if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+      showMicModal("Microphone access is blocked right now. Click Enable Microphone, then allow access in the browser prompt.");
+      setVoiceStatus("Microphone access is blocked. Open the popup and allow access to continue.", true);
+      return;
+    }
+    if (event.error === "audio-capture") {
+      showMicModal("No microphone was detected. Connect a mic or choose the correct input device, then try again.");
+      setVoiceStatus("No microphone was detected for voice input.", true);
+      return;
+    }
     setVoiceStatus(`Voice input error: ${event.error}`, true);
   };
   recognition.onresult = (event) => {
@@ -137,6 +176,56 @@ function initialiseVoiceRecognition() {
   };
   state.recognition = recognition;
   setVoiceStatus("Voice mode is ready. Start an interview and then use the microphone controls.");
+}
+
+async function getMicrophonePermissionState() {
+  if (!navigator.permissions || typeof navigator.permissions.query !== "function") {
+    return "prompt";
+  }
+  try {
+    const result = await navigator.permissions.query({ name: "microphone" });
+    return result.state;
+  } catch {
+    return "prompt";
+  }
+}
+
+async function promptForMicrophoneAccess() {
+  if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== "function") {
+    throw new Error("Microphone access is not supported in this browser.");
+  }
+  stopMicStream();
+  state.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  setVoiceStatus("Microphone access enabled. You can start speaking now.");
+  hideMicModal();
+}
+
+async function startVoiceListening() {
+  if (!state.voiceSupported || !state.recognition) {
+    setVoiceStatus("Voice input is not available in this browser.", true);
+    return;
+  }
+  if (!state.activeSessionId) {
+    setVoiceStatus("Start an interview session before using voice mode.", true);
+    return;
+  }
+  if (state.voiceListening) {
+    stopVoiceRecognition();
+    return;
+  }
+  const permissionState = await getMicrophonePermissionState();
+  if (permissionState === "denied") {
+    showMicModal("Microphone access was blocked earlier. Use the browser lock icon to allow the microphone, then click Enable Microphone.");
+    setVoiceStatus("Microphone access is blocked. Open the popup and allow it in browser settings.", true);
+    return;
+  }
+  try {
+    state.finalTranscript = qs("#interview-answer").value.trim();
+    state.recognition.start();
+  } catch {
+    showMicModal("We could not start voice capture yet. Click Enable Microphone, allow the browser prompt, and try again.");
+    setVoiceStatus("Voice capture could not start. Open the popup and allow microphone access.", true);
+  }
 }
 
 function renderAiBanner(ai) {
@@ -417,8 +506,9 @@ async function handleInterviewStart(event) {
     qs("#interview-feedback").innerHTML = `<div class="list-item">Interview session started in ${session.tone} mode.</div>`;
     setStatus("Interview started.");
     if (state.interviewMode === "voice") {
+      showMicModal("Voice interview is ready. Click Enable Microphone first, allow the browser prompt, then use Start Listening to answer.");
       speakText(session.current_question);
-      setVoiceStatus("Voice interview started. Use Start Listening to answer with your microphone.");
+      setVoiceStatus("Voice interview started. Enable the microphone in the popup, then answer with Start Listening.");
     }
   } catch (error) {
     setStatus(error.message, true);
@@ -497,20 +587,7 @@ function bindForms() {
     updateInterviewModeUi();
   });
   qs("#voice-toggle").addEventListener("click", () => {
-    if (!state.voiceSupported || !state.recognition) {
-      setVoiceStatus("Voice input is not available in this browser.", true);
-      return;
-    }
-    if (!state.activeSessionId) {
-      setVoiceStatus("Start an interview session before using voice mode.", true);
-      return;
-    }
-    if (state.voiceListening) {
-      stopVoiceRecognition();
-      return;
-    }
-    state.finalTranscript = qs("#interview-answer").value.trim();
-    state.recognition.start();
+    startVoiceListening().catch((error) => setVoiceStatus(error.message, true));
   });
   qs("#voice-submit").addEventListener("click", async () => {
     if (!qs("#interview-answer").value.trim()) {
@@ -522,6 +599,19 @@ function bindForms() {
   });
   qs("#voice-replay").addEventListener("click", () => {
     speakText(qs("#interview-question").textContent);
+  });
+  qs("#mic-modal-confirm").addEventListener("click", async () => {
+    try {
+      await promptForMicrophoneAccess();
+      speakText(qs("#interview-question").textContent);
+    } catch (error) {
+      setVoiceStatus("Microphone access is still blocked. Allow it in the browser prompt or site settings.", true);
+      showMicModal("Microphone access is still blocked. Click the lock icon in the address bar, allow the microphone, then try Enable Microphone again.");
+    }
+  });
+  qs("#mic-modal-close").addEventListener("click", hideMicModal);
+  document.querySelectorAll("[data-mic-close]").forEach((element) => {
+    element.addEventListener("click", hideMicModal);
   });
   qs("#show-add-student").addEventListener("click", () => {
     qs("#student-create-inline").hidden = false;

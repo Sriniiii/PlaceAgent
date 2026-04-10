@@ -358,6 +358,30 @@ textarea { resize: vertical; }
   border: 1px solid rgba(255, 113, 113, 0.28);
   background: rgba(255, 113, 113, 0.08);
 }
+.mic-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+}
+.mic-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 8, 15, 0.74);
+  backdrop-filter: blur(8px);
+}
+.mic-modal-card {
+  position: relative;
+  width: min(92vw, 560px);
+  margin: min(10vh, 80px) auto 0;
+  padding: 28px;
+  z-index: 1;
+}
+.mic-steps {
+  margin-top: 18px;
+}
+.mic-modal p {
+  margin-top: 12px;
+}
 .report-output {
   white-space: pre-wrap;
   color: #dff4ff;
