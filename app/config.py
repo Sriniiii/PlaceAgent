@@ -12,6 +12,12 @@ load_dotenv()
 @dataclass(frozen=True)
 class Settings:
     gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
+    gemini_live_api_key: str = os.getenv("GEMINI_LIVE_API_KEY", "")
+    gemini_live_model: str = os.getenv("GEMINI_LIVE_MODEL", "gemini-2.0-flash-live-001")
+    gemini_live_websocket_url: str = os.getenv(
+        "GEMINI_LIVE_WEBSOCKET_URL",
+        "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent",
+    )
     gemini_model: str = os.getenv("PLACEAGENT_MODEL", "gemini-2.5-flash")
     supabase_url: str = os.getenv("SUPABASE_URL", "")
     supabase_service_role_key: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -24,6 +30,15 @@ class Settings:
     @property
     def ai_enabled(self) -> bool:
         return bool(self.gemini_api_key.strip())
+
+    @property
+    def resolved_gemini_live_api_key(self) -> str:
+        live = self.gemini_live_api_key.strip()
+        return live if live else self.gemini_api_key.strip()
+
+    @property
+    def voice_enabled(self) -> bool:
+        return bool(self.resolved_gemini_live_api_key)
 
     @property
     def supabase_enabled(self) -> bool:

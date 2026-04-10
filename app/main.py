@@ -3,12 +3,13 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile, WebSocket
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.services import PlaceAgentStore
+from app.voice_live import run_voice_interview_session
 
 
 @asynccontextmanager
@@ -106,6 +107,12 @@ async def create_student(
         filename=file.filename or "resume.txt",
         content=content,
     )
+
+
+@app.websocket("/ws/students/{student_id}/interview/voice")
+async def voice_interview_ws(websocket: WebSocket, student_id: str, tone: str = Query("supportive")):
+    store = websocket.app.state.store
+    await run_voice_interview_session(websocket, store, student_id, tone)
 
 
 @app.post("/api/students/{student_id}/interview/start")

@@ -442,6 +442,11 @@ textarea { resize: vertical; }
   100% { box-shadow: 0 0 0 0 rgba(75, 240, 200, 0); }
 }
 
+.voice-interview-block { margin-bottom: 18px; }
+.voice-transcript { min-height: 72px; max-height: 240px; overflow-y: auto; font-size: 0.95rem; }
+.subhead.small { font-size: 0.85rem; margin-top: 10px; margin-bottom: 6px; }
+.cta-row.wrap { flex-wrap: wrap; }
+
 @media (max-width: 920px) {
   .hero, .dashboard-grid { flex-direction: column; }
   .nav { display: none; }

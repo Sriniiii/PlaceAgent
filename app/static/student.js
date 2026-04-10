@@ -426,7 +426,9 @@ async function handleInterviewStart(event) {
 }
 
 async function handleInterviewReply(event) {
-  event.preventDefault();
+  if (event) {
+    event.preventDefault();
+  }
   if (!state.selectedStudentId || !state.activeSessionId) return;
   const answer = qs("#interview-answer").value.trim();
   if (!answer) return;
@@ -516,7 +518,7 @@ function bindForms() {
       return;
     }
     stopVoiceRecognition();
-    await handleInterviewReply(new Event("submit"));
+    await handleInterviewReply();
   });
   qs("#voice-replay").addEventListener("click", () => {
     speakText(qs("#interview-question").textContent);

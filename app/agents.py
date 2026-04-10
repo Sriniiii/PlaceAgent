@@ -6,7 +6,7 @@ from datetime import datetime
 import fitz
 
 from app.llm import StructuredLLM
-from app.models import Alert, ChatMessage, InterviewTurn, JobDescription, MatchResult, ShortlistCandidate, Student, TaskItem, TpcAnalytics, WeeklyTask
+from app.models import Alert, ChatMessage, InterviewSession, InterviewTurn, JobDescription, MatchResult, ShortlistCandidate, Student, TaskItem, TpcAnalytics, WeeklyTask
 
 
 SKILL_KEYWORDS = {
@@ -424,6 +424,135 @@ class InterviewerAgent(BaseAgent):
         if not hints:
             return f"Strong answer. You were specific, impact-oriented, and clear. Score gain: +{score_delta}."
         return f"Promising answer, but you should {', '.join(hints)}. Score gain: +{score_delta}."
+
+    def _turns_from_voice_transcript(self, student: Student, transcript: list[dict], tone: str) -> list[InterviewTurn]:
+        normalized: list[tuple[str, str]] = []
+        for entry in transcript:
+            role = (entry.get("role") or "").lower()
+            text = (entry.get("text") or "").strip()
+            if not text:
+                continue
+            if role in ("assistant", "model", "interviewer"):
+                normalized.append(("model", text))
+            elif role in ("user",):
+                normalized.append(("user", text))
+            else:
+                normalized.append(("user", text))
+        turns: list[InterviewTurn] = []
+        idx = 0
+        while idx < len(normalized):
+            role, qtext = normalized[idx]
+            if role == "model":
+                if idx + 1 < len(normalized) and normalized[idx + 1][0] == "user":
+                    answer = normalized[idx + 1][1]
+                    sd = self._score_answer(answer)
+                    turns.append(
+                        InterviewTurn(
+                            question=qtext,
+                            answer=answer,
+                            feedback=self._feedback_for_answer(answer, sd),
+                            score_delta=sd,
+                        )
+                    )
+                    idx += 2
+                    continue
+            elif role == "user" and not turns:
+                sd = self._score_answer(qtext)
+                seed_q = _dynamic_question_bank(student, tone)[0]
+                turns.append(
+                    InterviewTurn(
+                        question=seed_q,
+                        answer=qtext,
+                        feedback=self._feedback_for_answer(qtext, sd),
+                        score_delta=sd,
+                    )
+                )
+            idx += 1
+        if not turns and transcript:
+            blob = " ".join((entry.get("text") or "").strip() for entry in transcript if (entry.get("text") or "").strip())
+            if blob:
+                sd = self._score_answer(blob)
+                turns.append(
+                    InterviewTurn(
+                        question="Voice interview (free-form)",
+                        answer=blob,
+                        feedback=self._feedback_for_answer(blob, sd),
+                        score_delta=sd,
+                    )
+                )
+        return turns[:MAX_INTERVIEW_TURNS]
+
+    async def score_voice_interview(
+        self,
+        student: Student,
+        *,
+        transcript: list[dict],
+        tone: str,
+        session_id: str,
+        started_at: datetime,
+    ) -> InterviewSession:
+        def fallback() -> dict:
+            turns = self._turns_from_voice_transcript(student, transcript, tone)
+            if turns:
+                base = max(45, min(92, 48 + sum(t.score_delta for t in turns)))
+            else:
+                base = 52
+            return {
+                "overall_score": base,
+                "report_summary": "Voice interview completed. Continue practicing concise stories with metrics and clear ownership.",
+                "turns": [turn.model_dump() for turn in turns],
+            }
+
+        payload = self._remember(
+            await self.llm.generate_json(
+                system_prompt=(
+                    "You are InterviewerAgent. Score a voice mock interview from its transcript. Return only valid JSON."
+                ),
+                user_prompt=(
+                    f"Student profile: {student.model_dump_json()}\n"
+                    f"Tone: {tone}\n"
+                    f"Transcript (array of objects with role and text): {transcript}\n"
+                    "Return JSON with keys: overall_score (integer 45-95), report_summary (string), "
+                    "turns (array of objects with question, answer, feedback, score_delta integer 1-7). "
+                    "Build turns by pairing interviewer/model prompts with user replies when possible."
+                ),
+                fallback=fallback,
+            )
+        )
+        raw_turns = payload.get("turns") or fallback()["turns"]
+        turns: list[InterviewTurn] = []
+        for item in raw_turns:
+            if not isinstance(item, dict):
+                continue
+            sd = max(1, min(7, int(item.get("score_delta", 4))))
+            turns.append(
+                InterviewTurn(
+                    question=str(item.get("question", "Question")),
+                    answer=str(item.get("answer", "")),
+                    feedback=str(item.get("feedback", "Good effort.")),
+                    score_delta=sd,
+                )
+            )
+        if not turns:
+            turns = self._turns_from_voice_transcript(student, transcript, tone)
+        if payload.get("overall_score") is not None:
+            overall = int(payload["overall_score"])
+        else:
+            overall = max(45, min(92, 50 + sum(t.score_delta for t in turns))) if turns else 50
+        overall = max(35, min(98, overall))
+        report = str(payload.get("report_summary") or fallback()["report_summary"])
+        return InterviewSession(
+            id=session_id,
+            student_id=student.id,
+            started_at=started_at,
+            mode="voice",
+            tone="challenging" if tone == "challenging" else "supportive",
+            current_question="Interview completed",
+            turns=turns,
+            overall_score=overall,
+            status="completed",
+            report_summary=report,
+        )
 
 
 class WatchdogAgent(BaseAgent):
