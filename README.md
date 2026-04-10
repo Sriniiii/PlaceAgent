@@ -45,6 +45,10 @@ Then open `http://127.0.0.1:7860`.
 3. Add `GEMINI_API_KEY` in the Space secrets
 4. Wait for the image build to finish
 
+Live deployment:
+
+- https://huggingface.co/spaces/sriniwassssssssss/PlaceAgent
+
 ## Enable Real AI Agents With Gemini
 
 ```powershell
