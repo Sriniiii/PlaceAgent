@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from datetime import datetime
 
+import fitz
+
 from app.llm import StructuredLLM
 from app.models import Alert, ChatMessage, InterviewTurn, JobDescription, MatchResult, ShortlistCandidate, Student, TaskItem, TpcAnalytics, WeeklyTask
 
@@ -29,6 +31,7 @@ QUESTION_BANK = [
     "Describe a project where you solved a difficult technical problem under pressure.",
     "What tradeoffs did you make in your most important project?",
 ]
+MAX_INTERVIEW_TURNS = 5
 
 COMPANY_CATALOG = [
     {"company": "Atlassian", "role": "Product Engineer Intern", "skills": ["React", "JavaScript", "System Design Basics"]},
@@ -54,40 +57,150 @@ class BaseAgent:
         return result.payload
 
 
+def _extract_resume_text(filename: str, content: bytes) -> str:
+    if filename.lower().endswith(".pdf"):
+        try:
+            with fitz.open(stream=content, filetype="pdf") as document:
+                pages = [page.get_text("text") for page in document]
+            text = "\n".join(part.strip() for part in pages if part and part.strip())
+            if text.strip():
+                return text
+        except Exception:
+            pass
+    return content.decode("utf-8", errors="ignore")
+
+
+def _clean_resume_excerpt(text: str, max_len: int = 260) -> str:
+    cleaned = re.sub(r"\s+", " ", text).strip()
+    cleaned = re.sub(r"%PDF-\d\.\d.*?(?=[A-Za-z]{3,})", "", cleaned)
+    return cleaned[:max_len]
+
+
+def _extract_projects(text: str) -> list[str]:
+    lines = [line.strip(" -•\t") for line in text.splitlines()]
+    candidates = [line for line in lines if 12 <= len(line) <= 110 and re.search(r"\b(built|developed|created|designed|implemented|engineered|project|platform|dashboard|app|system)\b", line, re.I)]
+    return candidates[:4]
+
+
+def _extract_metrics(text: str) -> list[str]:
+    return re.findall(r"\b\d+(?:\.\d+)?\s?(?:%|x|hours|days|users|clients|ms|sec|seconds?)\b", text, re.I)[:6]
+
+
+def _infer_roles_from_text(text: str, existing_roles: list[str]) -> list[str]:
+    lowered = text.lower()
+    inferred: list[str] = []
+    if any(word in lowered for word in ["react", "frontend", "css", "html", "figma", "next.js"]):
+        inferred.append("Frontend Engineer")
+    if any(word in lowered for word in ["fastapi", "api", "sql", "postgres", "backend", "docker"]):
+        inferred.append("Backend Engineer")
+    if any(word in lowered for word in ["machine learning", "pandas", "model", "data", "analytics"]):
+        inferred.append("AI/ML Engineer")
+    if not inferred:
+        inferred = existing_roles[:]
+    return inferred[:4]
+
+
+def _derive_resume_fallback(student: Student, raw_text: str, filename: str, keyword_skills: list[str]) -> dict:
+    extracted_projects = _extract_projects(raw_text)
+    extracted_metrics = _extract_metrics(raw_text)
+    inferred_roles = _infer_roles_from_text(raw_text, student.target_roles or ["Software Engineer"])
+    strengths: list[str] = []
+    priorities: list[str] = []
+    gaps: list[str] = []
+
+    if extracted_projects:
+        strengths.append("Project experience is visible and can be turned into strong interview stories")
+    else:
+        priorities.append("Add at least 2 concrete projects with scope, stack, and outcomes")
+
+    if extracted_metrics:
+        strengths.append("There are measurable outcomes the resume can leverage")
+    else:
+        priorities.append("Quantify project impact with metrics like latency, users, or accuracy")
+
+    if "React" in keyword_skills or "Next.js" in keyword_skills:
+        strengths.append("Frontend stack alignment is visible")
+    if "Python" in keyword_skills or "FastAPI" in keyword_skills or "SQL" in keyword_skills:
+        strengths.append("Backend fundamentals are visible")
+    if not keyword_skills:
+        priorities.append("Use clearer skill keywords so the resume is machine-readable")
+
+    if inferred_roles and "Frontend Engineer" in inferred_roles and "JavaScript" not in keyword_skills:
+        gaps.append("JavaScript depth")
+    if inferred_roles and "Backend Engineer" in inferred_roles and "SQL" not in keyword_skills:
+        gaps.append("SQL fundamentals")
+    if inferred_roles and "AI/ML Engineer" in inferred_roles and "Machine Learning" not in keyword_skills:
+        gaps.append("Machine learning fundamentals")
+    if not gaps:
+        gaps = student.skill_gaps[:3] or ["Interview structure", "Resume storytelling"]
+
+    priorities.extend([
+        "Make ownership explicit in each bullet using action-first language",
+        "Align the top section to your target role with the strongest project first",
+    ])
+
+    skills = keyword_skills or student.skills[:5]
+    excerpt = _clean_resume_excerpt(raw_text) or f"Parsed {filename} with low-confidence extraction."
+    summary_bits = []
+    if extracted_projects:
+        summary_bits.append(f"Resume suggests experience across {len(extracted_projects)} concrete project stories")
+    if inferred_roles:
+        summary_bits.append(f"Best aligned with {', '.join(inferred_roles[:2])}")
+    if extracted_metrics:
+        summary_bits.append(f"Includes measurable outcomes like {', '.join(extracted_metrics[:2])}")
+    summary = ". ".join(summary_bits) or "Resume content was extracted, but it needs stronger role alignment and clearer impact statements."
+
+    resume_score = 42
+    resume_score += min(18, len(skills) * 3)
+    resume_score += min(12, len(extracted_projects) * 4)
+    resume_score += min(10, len(extracted_metrics) * 3)
+    confidence_score = min(90, 45 + len(skills) * 4 + len(extracted_projects) * 3)
+
+    return {
+        "summary": summary,
+        "resume_score": min(96, resume_score),
+        "confidence_score": confidence_score,
+        "skills": skills,
+        "skill_gaps": gaps[:4],
+        "strengths": list(dict.fromkeys(strengths))[:4] or ["Resume has enough signal for targeted improvement"],
+        "improvement_priorities": list(dict.fromkeys(priorities))[:4],
+        "parsed_excerpt": excerpt,
+        "suggested_roles": inferred_roles[:4],
+    }
+
+
+def _dynamic_question_bank(student: Student, tone: str) -> list[str]:
+    target = student.target_roles[0] if student.target_roles else "Software Engineer"
+    gap = student.skill_gaps[0] if student.skill_gaps else "system design"
+    strongest_skill = student.skills[0] if student.skills else student.branch
+    project_hint = student.parsed_resume_excerpt or "your strongest project"
+    bank = [
+        f"Walk me through your strongest project and how it prepares you for a {target} role.",
+        f"You currently need to improve on {gap}. How are you working on it, and how would you explain it in an interview?",
+        f"I can see signals around {strongest_skill}. Tell me about a technical decision you made, the tradeoff you considered, and the result.",
+    ]
+    if "frontend" in target.lower():
+        bank[0] = "Tell me about the frontend project you are most proud of, the UI decisions you made, and how you measured success."
+    if "backend" in target.lower():
+        bank[0] = "Describe the backend or API system you built, the architecture you chose, and how you handled performance or reliability."
+    if tone == "challenging":
+        bank = [question + " Give me specific numbers, constraints, and outcomes." for question in bank]
+    return bank
+
+
 class ScoutAgent(BaseAgent):
     name = "scout"
 
-    def parse_resume(self, filename: str, content: bytes, student: Student) -> dict:
-        raw_text = content.decode("utf-8", errors="ignore")
+    async def parse_resume(self, filename: str, content: bytes, student: Student) -> dict:
+        raw_text = _extract_resume_text(filename, content)
         lower_text = raw_text.lower()
         keyword_skills = sorted({pretty for key, pretty in SKILL_KEYWORDS.items() if key in lower_text})
 
         def fallback() -> dict:
-            extracted = keyword_skills or student.skills[:5]
-            strengths = [
-                "Shows practical project exposure",
-                "Demonstrates relevant technical tools",
-                "Has enough raw material for shortlist improvement",
-            ]
-            priorities = [
-                "Add measurable impact to project bullets",
-                "Sharpen role-specific keywords",
-                "Make ownership and outcomes more explicit",
-            ]
-            return {
-                "summary": "Resume shows useful technical promise, but still needs sharper outcomes, role targeting, and impact-driven storytelling.",
-                "resume_score": min(96, max(45, student.resume_score + 8)),
-                "confidence_score": min(95, max(student.confidence_score, 58)),
-                "skills": extracted,
-                "skill_gaps": student.skill_gaps[:3],
-                "strengths": strengths,
-                "improvement_priorities": priorities,
-                "parsed_excerpt": " ".join(raw_text.split())[:260] or f"Parsed {filename} with baseline skill extraction.",
-                "suggested_roles": student.target_roles[:3],
-            }
+            return _derive_resume_fallback(student, raw_text, filename, keyword_skills)
 
         payload = self._remember(
-            self.llm.generate_json(
+            await self.llm.generate_json(
                 system_prompt=(
                     "You are ScoutAgent in a placement operations system. Analyze a student resume and return only valid JSON. "
                     "Be specific, practical, and placement-focused."
@@ -105,13 +218,22 @@ class ScoutAgent(BaseAgent):
         payload["skills"] = sorted(set(keyword_skills + payload.get("skills", [])))
         if not payload["skills"]:
             payload["skills"] = student.skills[:5]
+        payload["parsed_excerpt"] = _clean_resume_excerpt(payload.get("parsed_excerpt", "") or raw_text) or f"Parsed {filename}."
+        if not payload.get("suggested_roles"):
+            payload["suggested_roles"] = _infer_roles_from_text(raw_text, student.target_roles)
+        if not payload.get("strengths") or not payload.get("improvement_priorities"):
+            fallback_payload = _derive_resume_fallback(student, raw_text, filename, keyword_skills)
+            payload["strengths"] = payload.get("strengths") or fallback_payload["strengths"]
+            payload["improvement_priorities"] = payload.get("improvement_priorities") or fallback_payload["improvement_priorities"]
+            payload["skill_gaps"] = payload.get("skill_gaps") or fallback_payload["skill_gaps"]
+            payload["summary"] = payload.get("summary") or fallback_payload["summary"]
         return payload
 
 
 class MatcherAgent(BaseAgent):
     name = "matcher"
 
-    def generate_matches(self, student: Student) -> list[MatchResult]:
+    async def generate_matches(self, student: Student) -> list[MatchResult]:
         def fallback() -> dict:
             matches = []
             student_skills = set(student.skills)
@@ -132,7 +254,7 @@ class MatcherAgent(BaseAgent):
             return {"matches": matches[:3]}
 
         payload = self._remember(
-            self.llm.generate_json(
+            await self.llm.generate_json(
                 system_prompt=(
                     "You are MatcherAgent. Rank job-role matches for a placement platform. Return only valid JSON. "
                     "Use realistic shortlist reasoning and note missing skills."
@@ -152,7 +274,7 @@ class MatcherAgent(BaseAgent):
 class PlannerAgent(BaseAgent):
     name = "planner"
 
-    def build_plan(self, student: Student) -> dict:
+    async def build_plan(self, student: Student) -> dict:
         def fallback() -> dict:
             top_gap = student.skill_gaps[0] if student.skill_gaps else "Interview structure"
             return {
@@ -185,7 +307,7 @@ class PlannerAgent(BaseAgent):
             }
 
         payload = self._remember(
-            self.llm.generate_json(
+            await self.llm.generate_json(
                 system_prompt=(
                     "You are PlannerAgent. Build a realistic 3-week placement prep plan with high-leverage weekly focus areas. "
                     "Return only valid JSON."
@@ -205,18 +327,17 @@ class PlannerAgent(BaseAgent):
 class InterviewerAgent(BaseAgent):
     name = "interviewer"
 
-    def next_question(self, student: Student, tone: str, turn_index: int) -> str | None:
-        if turn_index >= 3:
+    async def next_question(self, student: Student, tone: str, turn_index: int) -> str | None:
+        if turn_index >= MAX_INTERVIEW_TURNS:
             return None
 
         def fallback() -> dict:
-            prompt = QUESTION_BANK[turn_index]
-            if tone == "challenging":
-                prompt += " Be precise and include measurable outcomes."
+            dynamic_bank = _dynamic_question_bank(student, tone)
+            prompt = dynamic_bank[turn_index] if turn_index < len(dynamic_bank) else dynamic_bank[-1]
             return {"question": prompt}
 
         payload = self._remember(
-            self.llm.generate_json(
+            await self.llm.generate_json(
                 system_prompt=(
                     "You are InterviewerAgent. Generate realistic interview questions for campus placements. "
                     "Return only valid JSON."
@@ -229,13 +350,18 @@ class InterviewerAgent(BaseAgent):
                 fallback=fallback,
             )
         )
-        return payload.get("question") or QUESTION_BANK[turn_index]
+        if payload.get("question"):
+            return payload["question"]
+        dynamic_bank = _dynamic_question_bank(student, tone)
+        return dynamic_bank[turn_index] if turn_index < len(dynamic_bank) else dynamic_bank[-1]
 
-    def evaluate_answer(self, student: Student, question: str, answer: str, turn_index: int) -> tuple[InterviewTurn, int, str | None, str]:
+    async def evaluate_answer(self, student: Student, question: str, answer: str, turn_index: int) -> tuple[InterviewTurn, int, str | None, str]:
         heur_score = self._score_answer(answer)
 
         def fallback() -> dict:
-            next_question = QUESTION_BANK[turn_index + 1] if turn_index + 1 < len(QUESTION_BANK) else None
+            dynamic_bank = _dynamic_question_bank(student, session_tone := ("challenging" if "specific numbers" in question.lower() else "supportive"))
+            next_index = turn_index + 1
+            next_question = None if next_index >= MAX_INTERVIEW_TURNS else (dynamic_bank[next_index] if next_index < len(dynamic_bank) else dynamic_bank[-1])
             summary = "Good progress. Keep making your ownership, metrics, and outcomes explicit."
             return {
                 "feedback": self._feedback_for_answer(answer, heur_score),
@@ -245,7 +371,7 @@ class InterviewerAgent(BaseAgent):
             }
 
         payload = self._remember(
-            self.llm.generate_json(
+            await self.llm.generate_json(
                 system_prompt=(
                     "You are InterviewerAgent. Evaluate a student's interview answer like a strong placement coach. "
                     "Return only valid JSON."
@@ -303,7 +429,7 @@ class InterviewerAgent(BaseAgent):
 class WatchdogAgent(BaseAgent):
     name = "watchdog"
 
-    def scan(self, students: list[Student], existing_alerts: list[Alert]) -> list[Alert]:
+    async def scan(self, students: list[Student], existing_alerts: list[Alert]) -> list[Alert]:
         existing_keys = {(alert.student_id, alert.title) for alert in existing_alerts}
         alerts: list[Alert] = []
 
@@ -326,7 +452,7 @@ class WatchdogAgent(BaseAgent):
                 }
 
             payload = self._remember(
-                self.llm.generate_json(
+                await self.llm.generate_json(
                     system_prompt=(
                         "You are WatchdogAgent. Review student readiness and decide whether a TPC alert should be raised. "
                         "Return only valid JSON."
@@ -361,7 +487,7 @@ class WatchdogAgent(BaseAgent):
 class MentorAgent(BaseAgent):
     name = "coach"
 
-    def reply(self, student: Student, history: list[ChatMessage], user_message: str) -> str:
+    async def reply(self, student: Student, history: list[ChatMessage], user_message: str) -> str:
         def fallback() -> dict:
             next_focus = student.improvement_priorities[0] if student.improvement_priorities else "completing this week's tasks"
             strongest = student.strengths[0] if student.strengths else "building resume impact and mock interview consistency"
@@ -373,7 +499,7 @@ class MentorAgent(BaseAgent):
             }
 
         payload = self._remember(
-            self.llm.generate_json(
+            await self.llm.generate_json(
                 system_prompt="You are CoachAgent, a supportive but sharp placement mentor. Return only JSON.",
                 user_prompt=(
                     f"Student: {student.model_dump_json()}\n"
@@ -390,7 +516,7 @@ class MentorAgent(BaseAgent):
 class InsightAgent(BaseAgent):
     name = "insight"
 
-    def shortlist(self, jd: JobDescription, students: list[Student]) -> list[ShortlistCandidate]:
+    async def shortlist(self, jd: JobDescription, students: list[Student]) -> list[ShortlistCandidate]:
         def fallback() -> dict:
             candidates = []
             jd_skills = {skill.lower() for skill in jd.extracted_skills}
@@ -412,7 +538,7 @@ class InsightAgent(BaseAgent):
             return {"candidates": candidates[:10]}
 
         payload = self._remember(
-            self.llm.generate_json(
+            await self.llm.generate_json(
                 system_prompt="You are InsightAgent. Rank candidate shortlists for a job description. Return only JSON.",
                 user_prompt=(
                     f"Job description: {jd.model_dump_json()}\n"

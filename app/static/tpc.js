@@ -9,6 +9,26 @@ function qs(selector) {
   return document.querySelector(selector);
 }
 
+function setStatus(message, isError = false) {
+  const el = qs("#tpc-status");
+  el.hidden = !message;
+  el.className = `ai-banner ${isError ? "offline" : ""}`.trim();
+  el.textContent = message || "";
+}
+
+async function apiFetch(url, options = {}) {
+  const response = await fetch(url, options);
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`;
+    try {
+      const data = await response.json();
+      message = data.detail || message;
+    } catch {}
+    throw new Error(message);
+  }
+  return response;
+}
+
 function formatTime(value) {
   return new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
@@ -42,8 +62,23 @@ function renderAlerts() {
       <strong>${alert.student_name}</strong>
       <div>${alert.title}</div>
       <p>${alert.detail}</p>
+      <div class="cta-row">
+        <button class="btn btn-secondary btn-small alert-action" data-alert-id="${alert.id}" data-action="resolve">Resolve</button>
+        <button class="btn btn-secondary btn-small alert-action" data-alert-id="${alert.id}" data-action="escalate">Escalate</button>
+      </div>
     </div>
-  `).join("");
+  `).join("") || `<div class="list-item">No active alerts right now.</div>`;
+
+  document.querySelectorAll(".alert-action").forEach((button) => {
+    button.addEventListener("click", async () => {
+      try {
+        await apiFetch(`/api/tpc/alerts/${button.dataset.alertId}/${button.dataset.action}`, { method: "PATCH" });
+        await loadBootstrap();
+      } catch (error) {
+        setStatus(error.message, true);
+      }
+    });
+  });
 }
 
 function renderRiskList() {
@@ -69,15 +104,21 @@ function renderLogs() {
 }
 
 function renderAnalytics(analytics) {
+  const heatmap = Object.entries(analytics.readiness_by_branch).map(([branch, value]) => `
+    <div class="list-item">
+      <strong>${branch}</strong>
+      <div class="heat-track"><span class="heat-fill" style="width:${value}%"></span></div>
+      <p>${value}% readiness</p>
+    </div>
+  `).join("") || `<div class="list-item">No data yet</div>`;
+
   qs("#analytics-panel").innerHTML = `
     <div class="list-item">
       <strong>Branch Distribution</strong>
       <p>${Object.entries(analytics.branch_distribution).map(([k, v]) => `${k}: ${v}`).join(" | ") || "No data yet"}</p>
     </div>
-    <div class="list-item">
-      <strong>Readiness By Branch</strong>
-      <p>${Object.entries(analytics.readiness_by_branch).map(([k, v]) => `${k}: ${v}%`).join(" | ") || "No data yet"}</p>
-    </div>
+    <div class="list-item"><strong>Readiness Heatmap</strong></div>
+    ${heatmap}
     <div class="list-item">
       <strong>Prediction Scores</strong>
       <p>${Object.entries(analytics.prediction_scores).map(([k, v]) => `${k}: ${v}`).join(" | ") || "No data yet"}</p>
@@ -86,7 +127,7 @@ function renderAnalytics(analytics) {
 }
 
 async function loadBootstrap() {
-  const response = await fetch("/api/bootstrap");
+  const response = await apiFetch("/api/bootstrap");
   const data = await response.json();
   tpcState.ai = data.ai;
   tpcState.students = data.students;
@@ -97,20 +138,30 @@ async function loadBootstrap() {
   renderAlerts();
   renderRiskList();
   renderLogs();
-  const analyticsRes = await fetch("/api/tpc/analytics");
+  const analyticsRes = await apiFetch("/api/tpc/analytics");
   renderAnalytics(await analyticsRes.json());
 }
 
 async function runWatchdog() {
-  await fetch("/api/admin/run-watchdog", { method: "POST" });
-  await loadBootstrap();
+  try {
+    setStatus("Running watchdog...");
+    await apiFetch("/api/admin/run-watchdog", { method: "POST" });
+    await loadBootstrap();
+    setStatus("Watchdog scan completed.");
+  } catch (error) {
+    setStatus(error.message, true);
+  }
 }
 
 async function generateReport() {
-  const response = await fetch("/api/tpc/reports/generate", { method: "POST" });
-  qs("#report-output").textContent = await response.text();
+  try {
+    const response = await apiFetch("/api/tpc/reports/generate", { method: "POST" });
+    qs("#report-output").textContent = await response.text();
+  } catch (error) {
+    setStatus(error.message, true);
+  }
 }
 
 qs("#run-watchdog").addEventListener("click", runWatchdog);
 qs("#generate-report").addEventListener("click", generateReport);
-loadBootstrap();
+loadBootstrap().catch((error) => setStatus(error.message, true));

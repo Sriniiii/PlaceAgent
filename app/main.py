@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
@@ -13,7 +14,11 @@ from app.services import PlaceAgentStore
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.store = PlaceAgentStore()
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(app.state.store.run_watchdog, "cron", hour=0, minute=0)
+    scheduler.start()
     yield
+    scheduler.shutdown()
 
 
 app = FastAPI(title="PlaceAgent", lifespan=lifespan)
@@ -73,7 +78,7 @@ async def upload_resume(student_id: str, request: Request, file: UploadFile = Fi
     store = get_store(request)
     try:
         content = await file.read()
-        return store.parse_resume(student_id, file.filename or "resume.txt", content)
+        return await store.handle_resume_upload(student_id, file.filename or "resume.txt", content)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Student not found") from exc
 
@@ -91,7 +96,7 @@ async def create_student(
 ):
     store = get_store(request)
     content = await file.read()
-    return store.create_student(
+    return await store.create_student(
         name=name,
         degree=degree,
         branch=branch,
@@ -107,7 +112,7 @@ async def create_student(
 async def start_interview(student_id: str, request: Request, tone: str = Form("supportive")):
     store = get_store(request)
     try:
-        return store.start_interview(student_id, tone=tone)
+        return await store.start_interview(student_id, tone=tone)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Student not found") from exc
 
@@ -116,7 +121,7 @@ async def start_interview(student_id: str, request: Request, tone: str = Form("s
 async def reply_interview(student_id: str, session_id: str, request: Request, answer: str = Form(...)):
     store = get_store(request)
     try:
-        return store.answer_interview(student_id, session_id, answer)
+        return await store.answer_interview(student_id, session_id, answer)
     except (KeyError, StopIteration) as exc:
         raise HTTPException(status_code=404, detail="Interview session not found") from exc
 
@@ -140,7 +145,7 @@ async def update_task(task_id: str, request: Request, student_id: str = Form(...
 @app.post("/api/chat")
 async def chat(request: Request, student_id: str = Form(...), message: str = Form(...)):
     try:
-        return get_store(request).chat(student_id, message)
+        return await get_store(request).chat(student_id, message)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Student not found") from exc
 
@@ -188,7 +193,7 @@ async def agent_logs(request: Request):
 
 @app.post("/api/admin/run-watchdog")
 async def run_watchdog(request: Request):
-    return get_store(request).run_watchdog()
+    return await get_store(request).run_watchdog()
 
 
 @app.post("/api/hr/jd/upload")
@@ -204,6 +209,6 @@ async def list_jd(request: Request):
 @app.get("/api/hr/shortlist/{jd_id}")
 async def shortlist(jd_id: str, request: Request):
     try:
-        return get_store(request).shortlist(jd_id)
+        return await get_store(request).shortlist(jd_id)
     except StopIteration as exc:
         raise HTTPException(status_code=404, detail="Job description not found") from exc

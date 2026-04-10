@@ -7,6 +7,26 @@ function qs(selector) {
   return document.querySelector(selector);
 }
 
+function setStatus(message, isError = false) {
+  const el = qs("#hr-status");
+  el.hidden = !message;
+  el.className = `ai-banner ${isError ? "offline" : ""}`.trim();
+  el.textContent = message || "";
+}
+
+async function apiFetch(url, options = {}) {
+  const response = await fetch(url, options);
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`;
+    try {
+      const data = await response.json();
+      message = data.detail || message;
+    } catch {}
+    throw new Error(message);
+  }
+  return response;
+}
+
 function renderAiBanner(ai) {
   const el = qs("#ai-banner");
   el.className = `ai-banner ${ai.enabled ? "" : "offline"}`.trim();
@@ -28,38 +48,48 @@ function renderJds() {
 }
 
 async function loadBootstrap() {
-  const response = await fetch("/api/bootstrap");
+  const response = await apiFetch("/api/bootstrap");
   const data = await response.json();
   hrState.ai = data.ai;
   renderAiBanner(data.ai);
-  const jdResponse = await fetch("/api/hr/jd");
+  const jdResponse = await apiFetch("/api/hr/jd");
   hrState.jds = await jdResponse.json();
   renderJds();
 }
 
 async function loadShortlist(jdId) {
-  const response = await fetch(`/api/hr/shortlist/${jdId}`);
-  const data = await response.json();
-  qs("#shortlist-output").innerHTML = data.candidates.map((candidate) => `
-    <div class="list-item">
-      <strong>${candidate.student_name}</strong>
-      <p>${candidate.branch} | ${candidate.graduation_year}</p>
-      <p>Readiness ${candidate.readiness_score}% | Match ${candidate.match_percentage}%</p>
-      <p>${candidate.reason}</p>
-    </div>
-  `).join("") || `<div class="list-item">No candidates matched yet.</div>`;
+  try {
+    const response = await apiFetch(`/api/hr/shortlist/${jdId}`);
+    const data = await response.json();
+    qs("#shortlist-output").innerHTML = data.candidates.map((candidate) => `
+      <div class="list-item">
+        <strong>${candidate.student_name}</strong>
+        <p>${candidate.branch} | ${candidate.graduation_year}</p>
+        <p>Readiness ${candidate.readiness_score}% | Match ${candidate.match_percentage}%</p>
+        <p>${candidate.reason}</p>
+      </div>
+    `).join("") || `<div class="list-item">No candidates matched yet.</div>`;
+  } catch (error) {
+    setStatus(error.message, true);
+  }
 }
 
 async function handleJdSubmit(event) {
   event.preventDefault();
   const formData = new FormData(event.currentTarget);
-  const response = await fetch("/api/hr/jd/upload", { method: "POST", body: formData });
-  const jd = await response.json();
-  hrState.jds = [jd, ...hrState.jds];
-  renderJds();
-  event.currentTarget.reset();
-  await loadShortlist(jd.id);
+  try {
+    setStatus("Uploading JD and ranking candidates...");
+    const response = await apiFetch("/api/hr/jd/upload", { method: "POST", body: formData });
+    const jd = await response.json();
+    hrState.jds = [jd, ...hrState.jds];
+    renderJds();
+    event.currentTarget.reset();
+    await loadShortlist(jd.id);
+    setStatus("Shortlist generated.");
+  } catch (error) {
+    setStatus(error.message, true);
+  }
 }
 
 qs("#jd-form").addEventListener("submit", handleJdSubmit);
-loadBootstrap();
+loadBootstrap().catch((error) => setStatus(error.message, true));

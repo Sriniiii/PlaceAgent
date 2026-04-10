@@ -2,3 +2,10 @@ fastapi
 uvicorn
 jinja2
 python-multipart
+httpx
+apscheduler
+pydantic-settings
+python-dotenv
+supabase
+langgraph
+pymupdf

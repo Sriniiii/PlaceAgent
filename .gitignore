@@ -6,3 +6,4 @@ __pycache__/
 .mypy_cache/
 uvicorn.out.log
 uvicorn.err.log
+.env

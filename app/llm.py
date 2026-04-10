@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass
 from typing import Any, Callable
 
-import requests
+import httpx
 
 from app.config import settings
 
@@ -23,7 +23,7 @@ class StructuredLLM:
         self.api_key = settings.gemini_api_key
         self.base_url = "https://generativelanguage.googleapis.com/v1beta/models"
 
-    def generate_json(
+    async def generate_json(
         self,
         *,
         system_prompt: str,
@@ -34,34 +34,34 @@ class StructuredLLM:
             return AIResult(payload=fallback(), ai_enabled=False, source="fallback")
 
         try:
-            response = requests.post(
-                f"{self.base_url}/{self.model}:generateContent",
-                headers={
-                    "Content-Type": "application/json",
-                    "x-goog-api-key": self.api_key,
-                },
-                json={
-                    "contents": [
-                        {
-                            "role": "user",
-                            "parts": [
-                                {
-                                    "text": (
-                                        f"{system_prompt}\n\n"
-                                        f"{user_prompt}\n\n"
-                                        "Return only valid JSON. Do not wrap it in markdown fences."
-                                    )
-                                }
-                            ],
-                        }
-                    ],
-                    "generationConfig": {
-                        "temperature": 0.2,
-                        "responseMimeType": "application/json",
+            async with httpx.AsyncClient(timeout=45) as client:
+                response = await client.post(
+                    f"{self.base_url}/{self.model}:generateContent",
+                    headers={
+                        "Content-Type": "application/json",
+                        "x-goog-api-key": self.api_key,
                     },
-                },
-                timeout=45,
-            )
+                    json={
+                        "contents": [
+                            {
+                                "role": "user",
+                                "parts": [
+                                    {
+                                        "text": (
+                                            f"{system_prompt}\n\n"
+                                            f"{user_prompt}\n\n"
+                                            "Return only valid JSON. Do not wrap it in markdown fences."
+                                        )
+                                    }
+                                ],
+                            }
+                        ],
+                        "generationConfig": {
+                            "temperature": 0.2,
+                            "responseMimeType": "application/json",
+                        },
+                    },
+                )
             response.raise_for_status()
             data = response.json()
             content = data["candidates"][0]["content"]["parts"][0]["text"]

@@ -9,6 +9,35 @@ function qs(selector) {
   return document.querySelector(selector);
 }
 
+function setStatus(message, isError = false) {
+  const el = qs("#student-status");
+  el.hidden = !message;
+  el.className = `ai-banner ${isError ? "offline" : ""}`.trim();
+  el.textContent = message || "";
+}
+
+async function apiFetch(url, options = {}) {
+  const response = await fetch(url, options);
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`;
+    try {
+      const data = await response.json();
+      message = data.detail || message;
+    } catch {}
+    throw new Error(message);
+  }
+  return response;
+}
+
+function setButtonLoading(button, loading, loadingText = "Working...") {
+  if (!button) return;
+  if (!button.dataset.defaultText) {
+    button.dataset.defaultText = button.textContent;
+  }
+  button.disabled = loading;
+  button.textContent = loading ? loadingText : button.dataset.defaultText;
+}
+
 function renderAiBanner(ai) {
   const el = qs("#ai-banner");
   el.className = `ai-banner ${ai.enabled ? "" : "offline"}`.trim();
@@ -132,30 +161,49 @@ function renderTasks(student) {
   `).join("") || `<div class="list-item">No tasks yet.</div>`;
   document.querySelectorAll(".task-status").forEach((button) => {
     button.addEventListener("click", async () => {
-      const formData = new FormData();
-      formData.append("student_id", state.selectedStudentId);
-      formData.append("status", button.dataset.status);
-      await fetch(`/api/tasks/${button.dataset.taskId}`, { method: "PATCH", body: formData });
-      await refreshStudent();
+      try {
+        const formData = new FormData();
+        formData.append("student_id", state.selectedStudentId);
+        formData.append("status", button.dataset.status);
+        await apiFetch(`/api/tasks/${button.dataset.taskId}`, { method: "PATCH", body: formData });
+        await refreshStudent();
+      } catch (error) {
+        setStatus(error.message, true);
+      }
     });
   });
 }
 
+function renderSparkline(scores) {
+  if (!scores.length) return "";
+  const max = Math.max(...scores, 1);
+  const min = Math.min(...scores, 0);
+  const range = Math.max(max - min, 1);
+  const points = scores.map((score, index) => {
+    const x = (index / Math.max(scores.length - 1, 1)) * 118 + 1;
+    const y = 34 - ((score - min) / range) * 28;
+    return `${x},${y}`;
+  }).join(" ");
+  return `<svg viewBox="0 0 120 36" class="trend-line" aria-label="Interview score trend"><polyline fill="none" stroke="currentColor" stroke-width="2" points="${points}" /></svg>`;
+}
+
 async function loadProgress(studentId) {
-  const response = await fetch(`/api/progress/${studentId}`);
+  const response = await apiFetch(`/api/progress/${studentId}`);
   const progress = await response.json();
+  const scores = progress.interview_scores || [];
   qs("#progress-panel").innerHTML = `
     <div class="list-item">
       <strong>Progress Snapshot</strong>
       <p>Completion rate: ${progress.completion_rate}% | Percentile rank: ${progress.percentile_rank}%</p>
       <p>Completed tasks: ${progress.completed_tasks}/${progress.total_tasks}</p>
-      <p>Interview trend: ${(progress.interview_scores || []).join(" | ") || "No interviews yet"}</p>
+      <p>Interview trend: ${scores.length ? scores.join(" -> ") : "No interviews yet"}</p>
+      ${renderSparkline(scores)}
     </div>
   `;
 }
 
 async function loadChatHistory(studentId) {
-  const response = await fetch(`/api/chat/history/${studentId}`);
+  const response = await apiFetch(`/api/chat/history/${studentId}`);
   const history = await response.json();
   qs("#chat-history").innerHTML = history.map((msg) => `
     <p><strong>${msg.role === "assistant" ? "Mentor" : "You"}:</strong> ${msg.content}</p>
@@ -164,7 +212,7 @@ async function loadChatHistory(studentId) {
 
 async function refreshStudent() {
   if (!state.selectedStudentId) return;
-  const response = await fetch(`/api/students/${state.selectedStudentId}`);
+  const response = await apiFetch(`/api/students/${state.selectedStudentId}`);
   const student = await response.json();
   state.students = state.students.map((item) => item.id === student.id ? student : item);
   renderStudentList();
@@ -172,7 +220,7 @@ async function refreshStudent() {
 }
 
 async function refreshBootstrap() {
-  const response = await fetch("/api/bootstrap");
+  const response = await apiFetch("/api/bootstrap");
   const data = await response.json();
   state.ai = data.ai;
   state.students = data.students;
@@ -190,20 +238,30 @@ async function handleStudentCreate(event) {
   event.preventDefault();
   const form = event.currentTarget;
   const formData = new FormData(form);
-  const response = await fetch("/api/students", {
-    method: "POST",
-    body: formData,
-  });
-  const result = await response.json();
-  state.students = [result.student, ...state.students];
-  state.selectedStudentId = result.student.id;
-  renderStudentMode();
-  renderStudentList();
-  renderSelectedStudent();
-  form.reset();
-  const inlinePanel = qs("#student-create-inline");
-  if (inlinePanel) {
-    inlinePanel.hidden = true;
+  const submitButton = form.querySelector('button[type="submit"]');
+  try {
+    setStatus("Creating student profile and running agents...");
+    setButtonLoading(submitButton, true, "Creating...");
+    const response = await apiFetch("/api/students", {
+      method: "POST",
+      body: formData,
+    });
+    const result = await response.json();
+    state.students = [result.student, ...state.students];
+    state.selectedStudentId = result.student.id;
+    renderStudentMode();
+    renderStudentList();
+    renderSelectedStudent();
+    form.reset();
+    const inlinePanel = qs("#student-create-inline");
+    if (inlinePanel) {
+      inlinePanel.hidden = true;
+    }
+    setStatus("Student created and analysis completed.");
+  } catch (error) {
+    setStatus(error.message, true);
+  } finally {
+    setButtonLoading(submitButton, false);
   }
 }
 
@@ -215,15 +273,25 @@ async function handleResumeUpload(event) {
 
   const formData = new FormData();
   formData.append("file", file);
+  const submitButton = event.currentTarget.querySelector('button[type="submit"]');
 
-  const response = await fetch(`/api/students/${state.selectedStudentId}/resume`, {
-    method: "POST",
-    body: formData,
-  });
-  const result = await response.json();
-  state.students = state.students.map((student) => student.id === result.student.id ? result.student : student);
-  renderStudentList();
-  renderSelectedStudent();
+  try {
+    setStatus("Uploading resume and refreshing insights...");
+    setButtonLoading(submitButton, true, "Analyzing...");
+    const response = await apiFetch(`/api/students/${state.selectedStudentId}/resume`, {
+      method: "POST",
+      body: formData,
+    });
+    const result = await response.json();
+    state.students = state.students.map((student) => student.id === result.student.id ? result.student : student);
+    renderStudentList();
+    renderSelectedStudent();
+    setStatus(`Resume analyzed via ${result.source}.`);
+  } catch (error) {
+    setStatus(error.message, true);
+  } finally {
+    setButtonLoading(submitButton, false);
+  }
 }
 
 async function handleInterviewStart(event) {
@@ -232,14 +300,19 @@ async function handleInterviewStart(event) {
   const formData = new FormData();
   formData.append("tone", qs("#interview-tone").value);
 
-  const response = await fetch(`/api/students/${state.selectedStudentId}/interview/start`, {
-    method: "POST",
-    body: formData,
-  });
-  const session = await response.json();
-  state.activeSessionId = session.id;
-  qs("#interview-question").textContent = session.current_question;
-  qs("#interview-feedback").innerHTML = `<div class="list-item">Interview session started in ${session.tone} mode.</div>`;
+  try {
+    const response = await apiFetch(`/api/students/${state.selectedStudentId}/interview/start`, {
+      method: "POST",
+      body: formData,
+    });
+    const session = await response.json();
+    state.activeSessionId = session.id;
+    qs("#interview-question").textContent = session.current_question;
+    qs("#interview-feedback").innerHTML = `<div class="list-item">Interview session started in ${session.tone} mode.</div>`;
+    setStatus("Interview started.");
+  } catch (error) {
+    setStatus(error.message, true);
+  }
 }
 
 async function handleInterviewReply(event) {
@@ -251,23 +324,27 @@ async function handleInterviewReply(event) {
   const formData = new FormData();
   formData.append("answer", answer);
 
-  const response = await fetch(`/api/students/${state.selectedStudentId}/interview/${state.activeSessionId}/reply`, {
-    method: "POST",
-    body: formData,
-  });
-  const result = await response.json();
-  qs("#interview-answer").value = "";
-  qs("#interview-question").textContent = result.next_question || "Interview completed. Start a new session anytime.";
-  qs("#interview-feedback").innerHTML = `
-    <div class="list-item">
-      <strong>Feedback <span class="badge ${result.ai_enabled ? "" : "offline"}">${result.source}</span></strong>
-      <p>${result.latest_feedback}</p>
-      <p><strong>Resources:</strong> ${result.recommended_resources.join(" | ")}</p>
-      <p><strong>Current score:</strong> ${result.session.overall_score}%</p>
-      <p><strong>Report:</strong> ${result.session.report_summary || "Interview report will grow as the session continues."}</p>
-    </div>
-  `;
-  await refreshStudent();
+  try {
+    const response = await apiFetch(`/api/students/${state.selectedStudentId}/interview/${state.activeSessionId}/reply`, {
+      method: "POST",
+      body: formData,
+    });
+    const result = await response.json();
+    qs("#interview-answer").value = "";
+    qs("#interview-question").textContent = result.next_question || "Interview completed. Start a new session anytime.";
+    qs("#interview-feedback").innerHTML = `
+      <div class="list-item">
+        <strong>Feedback <span class="badge ${result.ai_enabled ? "" : "offline"}">${result.source}</span></strong>
+        <p>${result.latest_feedback}</p>
+        <p><strong>Resources:</strong> ${result.recommended_resources.join(" | ")}</p>
+        <p><strong>Current score:</strong> ${result.session.overall_score}%</p>
+        <p><strong>Report:</strong> ${result.session.report_summary || "Interview report will grow as the session continues."}</p>
+      </div>
+    `;
+    await refreshStudent();
+  } catch (error) {
+    setStatus(error.message, true);
+  }
 }
 
 async function handleChat(event) {
@@ -278,12 +355,16 @@ async function handleChat(event) {
   const formData = new FormData();
   formData.append("student_id", state.selectedStudentId);
   formData.append("message", message);
-  const response = await fetch("/api/chat", { method: "POST", body: formData });
-  const result = await response.json();
-  qs("#chat-message").value = "";
-  qs("#chat-history").innerHTML = result.history.map((msg) => `
-    <p><strong>${msg.role === "assistant" ? "Mentor" : "You"}:</strong> ${msg.content}</p>
-  `).join("");
+  try {
+    const response = await apiFetch("/api/chat", { method: "POST", body: formData });
+    const result = await response.json();
+    qs("#chat-message").value = "";
+    qs("#chat-history").innerHTML = result.history.map((msg) => `
+      <p><strong>${msg.role === "assistant" ? "Mentor" : "You"}:</strong> ${msg.content}</p>
+    `).join("");
+  } catch (error) {
+    setStatus(error.message, true);
+  }
 }
 
 function bindForms() {
@@ -303,4 +384,4 @@ function bindForms() {
 }
 
 bindForms();
-refreshBootstrap();
+refreshBootstrap().catch((error) => setStatus(error.message, true));
