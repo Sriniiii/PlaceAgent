@@ -25,6 +25,7 @@ from app.models import (
     TaskItem,
     TaskUpdateResult,
     TpcAnalytics,
+    VoiceInterviewSession,
 )
 from app.orchestrator import build_resume_graph
 from app.repository import BaseRepository, SupabaseRepository
@@ -37,6 +38,7 @@ class PlaceAgentStore:
     agent_trace: list[AgentLog] = field(default_factory=list)
     chats: dict[str, list[ChatMessage]] = field(default_factory=dict)
     job_descriptions: list[JobDescription] = field(default_factory=list)
+    voice_sessions: dict[str, VoiceInterviewSession] = field(default_factory=dict)
     llm: StructuredLLM = field(default_factory=StructuredLLM)
     scout: ScoutAgent = field(init=False)
     matcher: MatcherAgent = field(init=False)
@@ -86,6 +88,7 @@ class PlaceAgentStore:
     def ai_config(self) -> dict[str, str | bool]:
         return {
             "enabled": settings.ai_enabled,
+            "voice_enabled": settings.voice_enabled,
             "model": settings.gemini_model,
             "storage_mode": self.persistence_mode,
             "supabase_enabled": self.persistence_enabled,
@@ -269,6 +272,7 @@ class PlaceAgentStore:
             id=str(uuid.uuid4()),
             student_id=student_id,
             started_at=datetime.now(),
+            mode="text",
             tone="challenging" if tone == "challenging" else "supportive",
             current_question=await self.interviewer.next_question(student, tone, 0) or "Tell me about yourself.",
             overall_score=max(40, student.interview_score),
@@ -304,6 +308,63 @@ class PlaceAgentStore:
             session=session,
             latest_feedback=turn.feedback,
             next_question=next_question,
+            recommended_resources=self.interviewer.recommended_resources(student),
+            ai_enabled=self.interviewer.last_ai_enabled,
+            source=self.interviewer.last_source,
+        )
+
+    def create_voice_session(self, student_id: str) -> VoiceInterviewSession:
+        self.get_student(student_id)
+        session = VoiceInterviewSession(id=str(uuid.uuid4()), student_id=student_id, started_at=datetime.now())
+        self.voice_sessions[session.id] = session
+        return session
+
+    def update_voice_transcript(self, voice_session_id: str, transcript: list[dict]) -> None:
+        active = self.voice_sessions.get(voice_session_id)
+        if active:
+            active.transcript = list(transcript)
+
+    async def finalize_voice_interview(
+        self,
+        student_id: str,
+        voice_session_id: str,
+        transcript: list[dict],
+        tone: str,
+    ) -> InterviewReplyResult:
+        student = self.get_student(student_id)
+        voice = self.voice_sessions.get(voice_session_id)
+        if not voice or voice.student_id != student_id:
+            raise KeyError("voice session")
+        voice.status = "completed"
+        voice.transcript = list(transcript)
+        interview_session = await self.interviewer.score_voice_interview(
+            student,
+            transcript=transcript,
+            tone=tone,
+            session_id=str(uuid.uuid4()),
+            started_at=voice.started_at,
+        )
+        student.last_login_at = datetime.now()
+        student.interview_score = max(student.interview_score, interview_session.overall_score)
+        student.confidence_score = min(95, student.confidence_score + max(1, min(5, len(interview_session.turns))))
+        student.readiness_score = min(
+            98,
+            round((student.resume_score + student.interview_score + student.confidence_score + self.completion_rate(student)) / 4),
+        )
+        student.interview_history.insert(0, interview_session)
+        self.repository.upsert_interview_session(student_id, interview_session)
+        self.persist_student(student)
+        self.voice_sessions.pop(voice_session_id, None)
+        self.log(
+            "interviewer",
+            "Voice interview scored",
+            f"Voice session {voice_session_id} finalized for {student.name} at {interview_session.overall_score}% via {self.interviewer.last_source}.",
+        )
+        latest_feedback = interview_session.turns[-1].feedback if interview_session.turns else "Voice interview complete."
+        return InterviewReplyResult(
+            session=interview_session,
+            latest_feedback=latest_feedback,
+            next_question=None,
             recommended_resources=self.interviewer.recommended_resources(student),
             ai_enabled=self.interviewer.last_ai_enabled,
             source=self.interviewer.last_source,

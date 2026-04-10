@@ -107,7 +107,7 @@ def _serialize_interviews(student: Student) -> list[dict[str, Any]]:
         {
             "id": session.id,
             "student_id": student.id,
-            "mode": "text",
+            "mode": session.mode,
             "interview_type": "general",
             "tone": session.tone,
             "current_question": session.current_question,
@@ -209,6 +209,7 @@ class SupabaseRepository(BaseRepository):
                         "id": row["id"],
                         "student_id": row["student_id"],
                         "started_at": row["started_at"],
+                        "mode": row.get("mode", "text"),
                         "tone": row.get("tone", "supportive"),
                         "current_question": row.get("current_question") or "Interview completed",
                         "turns": row.get("turns_json") or [],
@@ -334,7 +335,7 @@ class SupabaseRepository(BaseRepository):
                 {
                     "id": session.id,
                     "student_id": student_id,
-                    "mode": "text",
+                    "mode": session.mode,
                     "interview_type": "general",
                     "tone": session.tone,
                     "current_question": session.current_question,

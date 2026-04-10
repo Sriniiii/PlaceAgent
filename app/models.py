@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 AgentName = Literal["scout", "matcher", "planner", "interviewer", "watchdog", "orchestrator", "coach", "insight"]
 AlertSeverity = Literal["low", "medium", "high"]
 InterviewTone = Literal["supportive", "challenging"]
+InterviewMode = Literal["text", "voice"]
 TaskStatus = Literal["pending", "done", "missed"]
 AlertType = Literal["missed_deadline", "score_drop", "inactive", "support_needed"]
 
@@ -58,12 +59,21 @@ class InterviewSession(BaseModel):
     id: str
     student_id: str
     started_at: datetime
+    mode: InterviewMode = "text"
     tone: InterviewTone = "supportive"
     current_question: str
     turns: list[InterviewTurn] = Field(default_factory=list)
     overall_score: int = 55
     status: Literal["active", "completed"] = "active"
     report_summary: str | None = None
+
+
+class VoiceInterviewSession(BaseModel):
+    id: str
+    student_id: str
+    started_at: datetime
+    transcript: list[dict] = Field(default_factory=list)
+    status: Literal["active", "completed"] = "active"
 
 
 class Alert(BaseModel):
