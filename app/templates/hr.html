@@ -31,6 +31,7 @@
         <h2>Upload job descriptions and get AI-ranked shortlists</h2>
       </div>
       <div id="ai-banner" class="ai-banner"></div>
+      <div id="hr-stats" class="hero-stats"></div>
       <div id="hr-status" class="ai-banner" hidden></div>
     </section>
     <section class="section dashboard">
@@ -45,10 +46,22 @@
           </form>
           <div class="panel-title">Uploaded JDs</div>
           <div id="jd-list" class="stack-list"></div>
+          <div class="panel-title" style="margin-top:1.2rem;">All Candidates</div>
+          <div id="candidate-list" class="stack-list"></div>
         </aside>
         <section class="glass student-detail">
           <div class="panel-title">Shortlist Results</div>
           <div id="shortlist-output" class="stack-list"></div>
+          <div id="candidate-detail" hidden>
+            <div class="panel-title" style="margin-top:1.2rem;">Candidate Profile</div>
+            <div id="candidate-profile-content" class="stack-list"></div>
+            <form id="invite-form" class="onboarding-form" style="margin-top:1rem;" hidden>
+              <div class="subhead">Send Interview Invite</div>
+              <input type="date" name="interview_date" required />
+              <input type="text" name="message" placeholder="Optional note to candidate" />
+              <button class="btn btn-primary" type="submit">Send Invite</button>
+            </form>
+          </div>
         </section>
       </div>
     </section>

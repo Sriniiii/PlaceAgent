@@ -219,3 +219,18 @@ async def shortlist(jd_id: str, request: Request):
         return await get_store(request).shortlist(jd_id)
     except StopIteration as exc:
         raise HTTPException(status_code=404, detail="Job description not found") from exc
+
+
+@app.post("/api/hr/invite")
+async def send_invite(
+    request: Request,
+    student_id: str = Form(...),
+    jd_id: str = Form(...),
+    interview_date: str = Form(...),
+    message: str = Form(""),
+):
+    store = get_store(request)
+    try:
+        return store.create_invite(student_id, jd_id, interview_date, message)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Student not found") from exc

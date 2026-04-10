@@ -521,3 +521,25 @@ class PlaceAgentStore:
         jd = next(item for item in self.job_descriptions if item.id == jd_id)
         candidates = await self.insight.shortlist(jd, self.list_students())
         return ShortlistResult(jd=jd, candidates=candidates, ai_enabled=self.insight.last_ai_enabled, source=self.insight.last_source)
+
+    def create_invite(self, student_id: str, jd_id: str, interview_date: str, message: str) -> dict:
+        student = self.get_student(student_id)
+        jd = next((item for item in self.job_descriptions if item.id == jd_id), None)
+        invite = {
+            "id": f"inv-{uuid.uuid4().hex[:8]}",
+            "student_id": student_id,
+            "student_name": student.name,
+            "jd_id": jd_id,
+            "role_title": jd.role_title if jd else "Role",
+            "company_name": jd.company_name if jd else "Company",
+            "interview_date": interview_date,
+            "message": message,
+            "status": "sent",
+            "created_at": datetime.now().isoformat(),
+        }
+        self.log(
+            "insight",
+            "Interview invite sent",
+            f"HR sent interview invite to {student.name} for {invite['role_title']} at {invite['company_name']} on {interview_date}.",
+        )
+        return invite
