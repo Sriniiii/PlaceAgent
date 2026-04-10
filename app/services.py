@@ -107,6 +107,85 @@ class PlaceAgentStore:
     def persist_job_description(self, jd: JobDescription) -> None:
         self.repository.save_job_description(jd)
 
+    def _open_alert_exists(self, student_id: str, alert_type: str) -> bool:
+        return any(alert.student_id == student_id and alert.type == alert_type and not alert.resolved for alert in self.alerts)
+
+    def _count_consecutive_missed_deadlines(self, student: Student) -> int:
+        if not student.tasks:
+            return 0
+        today = date.today().isoformat()
+        relevant_tasks = [
+            task
+            for task in student.tasks
+            if task.status == "missed" or task.due_date <= today
+        ]
+        ordered_tasks = sorted(relevant_tasks, key=lambda item: item.due_date)
+        consecutive = 0
+        for task in reversed(ordered_tasks):
+            is_missed = task.status == "missed" or (task.status == "pending" and task.due_date < today)
+            if not is_missed:
+                break
+            consecutive += 1
+        return consecutive
+
+    def _raise_alert(self, *, student: Student, alert_type: str, severity: str, title: str, detail: str) -> Alert | None:
+        if self._open_alert_exists(student.id, alert_type):
+            return None
+        alert = Alert(
+            id=f"alert-{uuid.uuid4().hex[:8]}",
+            student_id=student.id,
+            student_name=student.name,
+            type=alert_type,  # type: ignore[arg-type]
+            severity=severity,  # type: ignore[arg-type]
+            title=title,
+            detail=detail,
+            created_at=datetime.now(),
+        )
+        self.alerts.insert(0, alert)
+        self.persist_alert(alert)
+        student.alerts_count = len([item for item in self.alerts if item.student_id == student.id and not item.resolved])
+        return alert
+
+    def _refresh_student_operational_alerts(self, student: Student) -> list[Alert]:
+        created: list[Alert] = []
+        consecutive_missed = self._count_consecutive_missed_deadlines(student)
+        if consecutive_missed >= 2:
+            alert = self._raise_alert(
+                student=student,
+                alert_type="missed_deadline",
+                severity="high",
+                title="Multiple missed deadlines detected",
+                detail=f"{student.name} has {consecutive_missed} consecutive missed placement tasks and needs intervention.",
+            )
+            if alert:
+                created.append(alert)
+        if student.last_login_at and student.last_login_at < datetime.now() - timedelta(days=5):
+            alert = self._raise_alert(
+                student=student,
+                alert_type="inactive",
+                severity="medium",
+                title="Inactivity detected",
+                detail=f"{student.name} has not been active in the last 5 days.",
+            )
+            if alert:
+                created.append(alert)
+        scores = [session.overall_score for session in student.interview_history if session.status == "completed"]
+        if len(scores) >= 6:
+            latest = scores[0]
+            rolling_average = sum(scores[1:6]) / 5
+            if rolling_average > 0 and latest <= rolling_average * 0.85:
+                alert = self._raise_alert(
+                    student=student,
+                    alert_type="score_drop",
+                    severity="medium",
+                    title="Mock interview score drop detected",
+                    detail=f"{student.name}'s latest mock score {latest}% is below the recent average of {round(rolling_average)}%.",
+                )
+                if alert:
+                    created.append(alert)
+        student.alerts_count = len([item for item in self.alerts if item.student_id == student.id and not item.resolved])
+        return created
+
     def dashboard_stats(self) -> dict[str, int]:
         students = self.list_students()
         avg = round(sum(student.readiness_score for student in students) / max(len(students), 1))
@@ -228,6 +307,7 @@ class PlaceAgentStore:
         completion_rate = self.completion_rate(student)
         student.readiness_score = min(98, round((student.resume_score + student.interview_score + student.confidence_score + completion_rate) / 4))
         self.repository.update_task_status(student_id, task_id, status)
+        self._refresh_student_operational_alerts(student)
         self.persist_student(student)
         return TaskUpdateResult(task=task, student=student)
 
@@ -372,56 +452,9 @@ class PlaceAgentStore:
 
     async def run_watchdog(self) -> AdminRunResult:
         trace: list[AgentLog] = []
-        today = date.today().isoformat()
         operational_alerts: list[Alert] = []
         for student in self.list_students():
-            overdue = [task for task in student.tasks if task.status == "pending" and task.due_date < today]
-            if len(overdue) >= 2 and not any(alert.student_id == student.id and alert.type == "missed_deadline" and not alert.resolved for alert in self.alerts):
-                alert = Alert(
-                    id=f"alert-{uuid.uuid4().hex[:8]}",
-                    student_id=student.id,
-                    student_name=student.name,
-                    type="missed_deadline",
-                    severity="high",
-                    title="Multiple missed deadlines detected",
-                    detail=f"{student.name} has {len(overdue)} overdue tasks and needs intervention.",
-                    created_at=datetime.now(),
-                )
-                operational_alerts.append(alert)
-                self.persist_alert(alert)
-            if student.last_login_at and student.last_login_at < datetime.now() - timedelta(days=5):
-                if not any(alert.student_id == student.id and alert.type == "inactive" and not alert.resolved for alert in self.alerts):
-                    alert = Alert(
-                        id=f"alert-{uuid.uuid4().hex[:8]}",
-                        student_id=student.id,
-                        student_name=student.name,
-                        type="inactive",
-                        severity="medium",
-                        title="Inactivity detected",
-                        detail=f"{student.name} has not been active in the last 5 days.",
-                        created_at=datetime.now(),
-                    )
-                    operational_alerts.append(alert)
-                    self.persist_alert(alert)
-            scores = [session.overall_score for session in student.interview_history if session.status == "completed"]
-            if len(scores) >= 6:
-                latest = scores[0]
-                rolling_average = sum(scores[1:6]) / 5
-                if rolling_average > 0 and latest <= rolling_average * 0.85:
-                    if not any(alert.student_id == student.id and alert.type == "score_drop" and not alert.resolved for alert in self.alerts):
-                        alert = Alert(
-                            id=f"alert-{uuid.uuid4().hex[:8]}",
-                            student_id=student.id,
-                            student_name=student.name,
-                            type="score_drop",
-                            severity="medium",
-                            title="Mock interview score drop detected",
-                            detail=f"{student.name}'s latest mock score {latest}% is below the recent average of {round(rolling_average)}%.",
-                            created_at=datetime.now(),
-                        )
-                        operational_alerts.append(alert)
-                        self.persist_alert(alert)
-        self.alerts = operational_alerts + self.alerts
+            operational_alerts.extend(self._refresh_student_operational_alerts(student))
         new_alerts = await self.watchdog.scan(self.list_students(), self.alerts)
         self.alerts = new_alerts + self.alerts
         for alert in new_alerts:

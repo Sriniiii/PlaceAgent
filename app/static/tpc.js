@@ -138,8 +138,13 @@ async function loadBootstrap() {
   renderAlerts();
   renderRiskList();
   renderLogs();
-  const analyticsRes = await apiFetch("/api/tpc/analytics");
-  renderAnalytics(await analyticsRes.json());
+  try {
+    const analyticsRes = await apiFetch("/api/tpc/analytics");
+    renderAnalytics(await analyticsRes.json());
+  } catch (error) {
+    qs("#analytics-panel").innerHTML = `<div class="list-item">Analytics are temporarily unavailable.</div>`;
+    setStatus(error.message, true);
+  }
 }
 
 async function runWatchdog() {
