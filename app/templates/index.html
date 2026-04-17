@@ -29,28 +29,55 @@
   <main>
     <section class="hero hero-landing" id="story">
       <div class="hero-copy">
-        <div class="eyebrow">Gemini-Powered Placement Intelligence</div>
-        <h1>AI placement infrastructure for students, TPC teams, and hiring workflows.</h1>
+        <div class="eyebrow">Live Multi-Agent Placement Intelligence</div>
+        <h1>Placement operations that feel <span class="text-accent">alive</span>, fast, and recruiter-ready.</h1>
         <p>
-          PlaceAgent combines resume analysis, interview coaching, readiness tracking, and risk monitoring in one agent-driven system.
-          Students get actionable guidance, while TPC teams gain live visibility into who is ready, who is slipping, and where intervention matters.
+          PlaceAgent blends live resume intelligence, interview coaching, readiness tracking, and shortlist reasoning into one modern workspace for students, TPC teams, and hiring teams.
         </p>
         <div class="cta-row">
           <a class="btn btn-primary" href="/student">Open Student Dashboard</a>
           <a class="btn btn-secondary" href="/tpc">Open TPC Dashboard</a>
           <a class="btn btn-secondary" href="/hr">Open HR Dashboard</a>
         </div>
+        <div class="live-marquee" id="live-marquee">
+          <span class="live-pill">Scout parsing resumes</span>
+          <span class="live-pill">Matcher ranking fit</span>
+          <span class="live-pill">Planner building prep maps</span>
+          <span class="live-pill">Watchdog flagging risk</span>
+          <span class="live-pill">HR reviewing shortlists</span>
+        </div>
         <div id="ai-banner" class="ai-banner"></div>
       </div>
       <div class="hero-visual">
         <div class="orb orb-a"></div>
         <div class="orb orb-b"></div>
-        <div class="glass hero-panel">
+        <div class="orb orb-c"></div>
+        <div class="glass hero-panel hero-stage">
           <div class="panel-header">
-            <span class="pulse"></span>
-            <span>System Overview</span>
+            <div class="stage-title">
+              <span class="pulse"></span>
+              <span>Live System Overview</span>
+            </div>
+            <span class="stage-chip" id="live-model-chip">Gemini live</span>
           </div>
           <div class="landing-overview" id="landing-overview"></div>
+          <div class="signal-grid">
+            <article class="signal-card signal-student">
+              <div class="panel-title">Student Layer</div>
+              <h3>Resume to roadmap</h3>
+              <p>Upload a resume and watch Scout, Matcher, and Planner convert it into interview-ready momentum.</p>
+            </article>
+            <article class="signal-card signal-tpc">
+              <div class="panel-title">TPC Layer</div>
+              <h3>Early risk visibility</h3>
+              <p>Watchdog surfaces missed deadlines, score drops, and intervention priority before placement windows close.</p>
+            </article>
+            <article class="signal-card signal-hr">
+              <div class="panel-title">HR Layer</div>
+              <h3>Fit with reasoning</h3>
+              <p>Shortlists are explained with candidate strengths, missing requirements, and realistic gap-closing guidance.</p>
+            </article>
+          </div>
         </div>
       </div>
     </section>
@@ -58,7 +85,7 @@
     <section class="section roles" id="roles">
       <div class="section-head">
         <span class="eyebrow">Choose A Role</span>
-        <h2>Separate interfaces for students, TPC teams, and hiring teams</h2>
+        <h2>Three focused workspaces, one shared placement graph</h2>
       </div>
       <div class="role-grid">
         <article class="glass role-card role-student">
@@ -85,7 +112,7 @@
     <section class="section architecture" id="agents">
       <div class="section-head">
         <span class="eyebrow">Agent Chain</span>
-        <h2>Five agents coordinate the placement lifecycle</h2>
+        <h2>Five agents coordinate the full placement lifecycle</h2>
       </div>
       <div class="agent-grid">
         <article class="glass agent-card accent-blue"><h3>Scout</h3><p>Reads resumes, extracts strengths and gaps, and rewrites the placement narrative around evidence.</p></article>
@@ -93,6 +120,35 @@
         <article class="glass agent-card accent-amber"><h3>Planner</h3><p>Turns insight into a concrete multi-week prep plan with role-aware priorities.</p></article>
         <article class="glass agent-card accent-red"><h3>Interviewer</h3><p>Generates mock interview questions, critiques answers, and evolves a coaching report in real time.</p></article>
         <article class="glass agent-card accent-ink"><h3>Watchdog</h3><p>Monitors readiness risk and alerts the TPC when intervention is needed before placement windows close.</p></article>
+      </div>
+    </section>
+
+    <section class="section story-strip">
+      <div class="section-head">
+        <span class="eyebrow">Live Workflow</span>
+        <h2>From student upload to recruiter action in one continuous loop</h2>
+      </div>
+      <div class="story-rail">
+        <div class="story-node">
+          <span class="story-step">01</span>
+          <strong>Student uploads a resume</strong>
+          <p>Scout extracts signal, scores readiness, and structures the story.</p>
+        </div>
+        <div class="story-node">
+          <span class="story-step">02</span>
+          <strong>Planner builds momentum</strong>
+          <p>Weekly tasks and interview prep are generated from the actual gap profile.</p>
+        </div>
+        <div class="story-node">
+          <span class="story-step">03</span>
+          <strong>TPC tracks risk</strong>
+          <p>Watchdog flags at-risk students before placement slippage compounds.</p>
+        </div>
+        <div class="story-node">
+          <span class="story-step">04</span>
+          <strong>HR shortlists with context</strong>
+          <p>Candidate fit is ranked, explained, and ready for direct invite flow.</p>
+        </div>
       </div>
     </section>
   </main>

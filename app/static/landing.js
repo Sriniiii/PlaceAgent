@@ -8,6 +8,10 @@ function renderAiBanner(ai) {
   el.innerHTML = ai.enabled
     ? `Real AI mode is active. Agents are currently powered by <strong>${ai.model}</strong>.`
     : `Fallback mode is active. Add <code>GEMINI_API_KEY</code> and restart the app to enable live AI reasoning.`;
+  const chip = qs("#live-model-chip");
+  if (chip) {
+    chip.textContent = ai.enabled ? `${ai.model}` : "Fallback";
+  }
 }
 
 function renderOverview(data) {
@@ -24,11 +28,26 @@ function renderOverview(data) {
   `).join("");
 }
 
+function animateMarquee() {
+  const marquee = qs("#live-marquee");
+  if (!marquee) return;
+  const pills = Array.from(marquee.children);
+  if (!pills.length) return;
+  let index = 0;
+  setInterval(() => {
+    pills.forEach((pill, pillIndex) => {
+      pill.classList.toggle("is-highlighted", pillIndex === index);
+    });
+    index = (index + 1) % pills.length;
+  }, 1400);
+}
+
 async function init() {
   const response = await fetch("/api/bootstrap");
   const data = await response.json();
   renderAiBanner(data.ai);
   renderOverview(data);
+  animateMarquee();
 }
 
 init();
