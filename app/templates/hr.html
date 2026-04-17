@@ -6,105 +6,66 @@
   <title>PlaceAgent | HR Portal</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
-<body class="portal-body">
+<body>
   <div class="noise"></div>
-  <div class="portal-shell">
-    <aside class="portal-sidebar">
-      <a class="sidebar-logo" href="/">
-        <span class="logo-icon">P</span>
-        <span>
-          <span class="logo-text">PlaceAgent</span>
-          <span class="logo-sub">HR Portal</span>
-        </span>
-      </a>
+  <header class="topbar">
+    <a class="brand brand-link" href="/">
+      <span class="brand-mark"></span>
+      <span>PlaceAgent</span>
+    </a>
+    <nav class="nav">
+      <a href="/">Landing</a>
+      <a href="/student">Student</a>
+      <a href="/tpc">TPC</a>
+      <a href="/hr">HR</a>
+    </nav>
+  </header>
 
-      <nav class="sidebar-nav">
-        <div class="nav-label">Hiring</div>
-        <a class="nav-item active" href="/hr"><span class="nav-icon">▣</span>Dashboard</a>
-        <a class="nav-item" href="#jd-upload-section"><span class="nav-icon">↑</span>JD Upload</a>
-        <a class="nav-item" href="#jd-list-section"><span class="nav-icon">≡</span>Job List</a>
-        <a class="nav-item" href="#candidate-list-section"><span class="nav-icon">◈</span>Candidates</a>
-        <a class="nav-item" href="#shortlist-section"><span class="nav-icon">✦</span>Shortlist</a>
-
-        <div class="nav-label">Portals</div>
-        <a class="nav-item" href="/student"><span class="nav-icon">◈</span>Student</a>
-        <a class="nav-item" href="/tpc"><span class="nav-icon">⌘</span>TPC</a>
-        <a class="nav-item" href="/"><span class="nav-icon">←</span>Landing</a>
-      </nav>
-
-      <div class="sidebar-footer">
-        <div class="user-pill">
-          <div class="avatar">H</div>
-          <div class="user-info">
-            <div class="name">Hiring Workspace</div>
-            <div class="role">Shortlist and invite flow</div>
-          </div>
-        </div>
+  <main class="page-shell">
+    <section class="section compact-hero">
+      <div class="section-head">
+        <span class="eyebrow">Company HR Portal</span>
+        <h2>Upload job descriptions and get AI-ranked shortlists</h2>
       </div>
-    </aside>
-
-    <main class="portal-main">
-      <section class="page-header">
-        <div>
-          <div class="eyebrow">Company HR Portal</div>
-          <h1>AI-ranked <span class="text-accent">shortlists</span> with candidate context.</h1>
-          <p>Upload a role, inspect candidate fit, understand the gap, and send invites from one recruiter-grade dashboard.</p>
-        </div>
-      </section>
-
       <div id="ai-banner" class="ai-banner"></div>
       <div id="hr-stats" class="hero-stats"></div>
       <div id="hr-status" class="ai-banner" hidden></div>
-
-      <section class="portal-dashboard">
-        <aside class="glass sidebar-panel">
-          <section id="jd-upload-section">
-            <div class="panel-title">Upload Job Description</div>
-            <form id="jd-form" class="onboarding-form">
-              <input type="text" name="company_name" placeholder="Company name" required />
-              <input type="text" name="role_title" placeholder="Role title" required />
-              <textarea name="requirements" rows="10" placeholder="Paste the job description or required skills..." required></textarea>
-              <button class="btn btn-primary" type="submit">Generate Shortlist</button>
-            </form>
-          </section>
-
-          <section id="jd-list-section">
-            <div class="panel-title">Uploaded JDs</div>
-            <div id="jd-list" class="stack-list"></div>
-          </section>
-
-          <section id="candidate-list-section">
-            <div class="panel-title">All Candidates</div>
-            <div id="candidate-list" class="stack-list"></div>
-          </section>
+    </section>
+    <section class="section dashboard">
+      <div class="dashboard-grid">
+        <aside class="glass student-list">
+          <div class="panel-title">Upload Job Description</div>
+          <form id="jd-form" class="onboarding-form">
+            <input type="text" name="company_name" placeholder="Company name" required />
+            <input type="text" name="role_title" placeholder="Role title" required />
+            <textarea name="requirements" rows="10" placeholder="Paste the job description or required skills..." required></textarea>
+            <button class="btn btn-primary" type="submit">Generate Shortlist</button>
+          </form>
+          <div class="panel-title">Uploaded JDs</div>
+          <div id="jd-list" class="stack-list"></div>
+          <div class="panel-title" style="margin-top:1.2rem;">All Candidates</div>
+          <div id="candidate-list" class="stack-list"></div>
         </aside>
-
-        <section class="portal-content">
-          <div class="feature-grid portal-feature-grid hr-feature-grid">
-            <section class="glass feature-panel" id="shortlist-section">
-              <div class="panel-title">Shortlist Results</div>
-              <div id="shortlist-output" class="stack-list"></div>
-            </section>
-
-            <section class="glass feature-panel feature-panel-wide" id="candidate-detail" hidden>
-              <div class="panel-title">Candidate Profile</div>
-              <div id="candidate-profile-content" class="stack-list"></div>
-              <form id="invite-form" class="onboarding-form" style="margin-top:1rem;" hidden>
-                <div class="subhead">Send Interview Invite</div>
-                <input type="date" name="interview_date" required />
-                <input type="text" name="message" placeholder="Optional note to candidate" />
-                <button class="btn btn-primary" type="submit">Send Invite</button>
-              </form>
-            </section>
+        <section class="glass student-detail">
+          <div class="panel-title">Shortlist Results</div>
+          <div id="shortlist-output" class="stack-list"></div>
+          <div id="candidate-detail" hidden>
+            <div class="panel-title" style="margin-top:1.2rem;">Candidate Profile</div>
+            <div id="candidate-profile-content" class="stack-list"></div>
+            <form id="invite-form" class="onboarding-form" style="margin-top:1rem;" hidden>
+              <div class="subhead">Send Interview Invite</div>
+              <input type="date" name="interview_date" required />
+              <input type="text" name="message" placeholder="Optional note to candidate" />
+              <button class="btn btn-primary" type="submit">Send Invite</button>
+            </form>
           </div>
         </section>
-      </section>
-    </main>
-  </div>
-
+      </div>
+    </section>
+  </main>
   <script src="/static/hr.js"></script>
 </body>
 </html>
