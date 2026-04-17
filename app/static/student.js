@@ -237,6 +237,10 @@ function renderAiBanner(ai) {
 }
 
 function renderStudentList() {
+  const badge = qs("#student-count-badge");
+  if (badge) {
+    badge.textContent = state.students.length;
+  }
   qs("#student-list").innerHTML = state.students.map((student) => `
     <button class="student-chip ${student.id === state.selectedStudentId ? "active" : ""}" data-student-id="${student.id}">
       <div><strong>${student.name}</strong></div>
@@ -305,6 +309,10 @@ function renderSelectedStudent() {
   qs("#student-name").textContent = student.name;
   qs("#student-summary").textContent = student.summary;
   qs("#student-readiness").textContent = student.readiness_score;
+  const ring = qs("#student-readiness-ring");
+  if (ring) {
+    ring.style.setProperty("--pct", student.readiness_score);
+  }
   qs("#resume-output").innerHTML = `
     <div class="list-item">
       <strong>${student.recent_resume_name || "No resume yet"}</strong>

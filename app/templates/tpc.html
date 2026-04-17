@@ -6,65 +6,91 @@
   <title>PlaceAgent | TPC Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
-<body>
+<body class="portal-body">
   <div class="noise"></div>
-  <header class="topbar">
-    <a class="brand brand-link" href="/">
-      <span class="brand-mark"></span>
-      <span>PlaceAgent</span>
-    </a>
-    <nav class="nav">
-      <a href="/">Landing</a>
-      <a href="/student">Student</a>
-      <a href="/tpc">TPC</a>
-      <a href="/hr">HR</a>
-    </nav>
-  </header>
+  <div class="portal-shell">
+    <aside class="portal-sidebar">
+      <a class="sidebar-logo" href="/">
+        <span class="logo-icon">P</span>
+        <span>
+          <span class="logo-text">PlaceAgent</span>
+          <span class="logo-sub">TPC Command</span>
+        </span>
+      </a>
 
-  <main class="page-shell">
-    <section class="section compact-hero">
-      <div class="section-head">
-        <span class="eyebrow">TPC Command Center</span>
-        <h2>Live alerts, cohort readiness, and autonomous watchdog operations</h2>
+      <nav class="sidebar-nav">
+        <div class="nav-label">Operations</div>
+        <a class="nav-item active" href="/tpc"><span class="nav-icon">⌘</span>Dashboard</a>
+        <a class="nav-item" href="#alerts-section"><span class="nav-icon">!</span>Alerts</a>
+        <a class="nav-item" href="#risk-section"><span class="nav-icon">◔</span>Risk Snapshot</a>
+        <a class="nav-item" href="#activity-section"><span class="nav-icon">↻</span>Agent Activity</a>
+        <a class="nav-item" href="#analytics-section"><span class="nav-icon">▦</span>Analytics</a>
+
+        <div class="nav-label">Portals</div>
+        <a class="nav-item" href="/student"><span class="nav-icon">◈</span>Student</a>
+        <a class="nav-item" href="/hr"><span class="nav-icon">▣</span>HR</a>
+        <a class="nav-item" href="/"><span class="nav-icon">←</span>Landing</a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-pill">
+          <div class="avatar">T</div>
+          <div class="user-info">
+            <div class="name">TPC Workspace</div>
+            <div class="role">Intervention and reporting</div>
+          </div>
+        </div>
       </div>
+    </aside>
+
+    <main class="portal-main">
+      <section class="page-header">
+        <div>
+          <div class="eyebrow">TPC Command Center</div>
+          <h1>Cohort <span class="text-accent">visibility</span> with autonomous alerts.</h1>
+          <p>Monitor placement risk, scan the cohort, and act on agent signals before students fall behind.</p>
+        </div>
+        <button class="btn btn-primary" id="run-watchdog" type="button">Run Watchdog</button>
+      </section>
+
       <div id="ai-banner" class="ai-banner"></div>
       <div id="tpc-status" class="ai-banner" hidden></div>
       <div id="hero-stats" class="hero-stats"></div>
-    </section>
 
-    <section class="section tpc">
-      <div class="tpc-grid">
-        <div class="glass">
-          <div class="row-head">
-            <div class="panel-title">Active Alerts</div>
-            <button class="btn btn-secondary" id="run-watchdog">Run Watchdog</button>
-          </div>
-          <div id="alerts-list" class="stack-list"></div>
+      <section class="portal-dashboard-single">
+        <div class="feature-grid portal-feature-grid tpc-feature-grid">
+          <section class="glass feature-panel" id="alerts-section">
+            <div class="row-head">
+              <div class="panel-title">Active Alerts</div>
+            </div>
+            <div id="alerts-list" class="stack-list"></div>
+          </section>
+
+          <section class="glass feature-panel" id="risk-section">
+            <div class="panel-title">Student Risk Snapshot</div>
+            <div id="student-risk-list" class="stack-list"></div>
+          </section>
+
+          <section class="glass feature-panel" id="activity-section">
+            <div class="panel-title">Recent Agent Activity</div>
+            <div id="agent-logs" class="stack-list"></div>
+          </section>
+
+          <section class="glass feature-panel feature-panel-wide" id="analytics-section">
+            <div class="row-head">
+              <div class="panel-title">Analytics And Report</div>
+              <button class="btn btn-secondary" id="generate-report" type="button">Generate Report</button>
+            </div>
+            <div id="analytics-panel" class="stack-list"></div>
+            <pre id="report-output" class="report-output"></pre>
+          </section>
         </div>
-        <div class="glass">
-          <div class="panel-title">Student Risk Snapshot</div>
-          <div id="student-risk-list" class="stack-list"></div>
-        </div>
-      </div>
-      <div class="tpc-grid tpc-bottom">
-        <div class="glass">
-          <div class="panel-title">Recent Agent Activity</div>
-          <div id="agent-logs" class="stack-list"></div>
-        </div>
-        <div class="glass">
-          <div class="row-head">
-            <div class="panel-title">Analytics And Report</div>
-            <button class="btn btn-secondary" id="generate-report">Generate Report</button>
-          </div>
-          <div id="analytics-panel" class="stack-list"></div>
-          <pre id="report-output" class="report-output"></pre>
-        </div>
-      </div>
-    </section>
-  </main>
+      </section>
+    </main>
+  </div>
 
   <script src="/static/tpc.js"></script>
 </body>
