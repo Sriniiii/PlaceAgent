@@ -6,10 +6,23 @@ const hrState = {
   selectedStudentId: null,
   stats: null,
   matchExplanations: {},
+  activeView: "overview",
 };
 
 function qs(selector) {
   return document.querySelector(selector);
+}
+
+function qsa(selector) {
+  return Array.from(document.querySelectorAll(selector));
+}
+
+function switchView(viewId) {
+  hrState.activeView = viewId;
+  qsa(".view").forEach((view) => view.classList.remove("active"));
+  qsa(".ni[data-view]").forEach((item) => item.classList.remove("on"));
+  qs(`#v-${viewId}`)?.classList.add("active");
+  qs(`.ni[data-view="${viewId}"]`)?.classList.add("on");
 }
 
 function setStatus(message, isError = false) {
@@ -76,28 +89,42 @@ function renderJds() {
       <div class="muted">${jd.role_title}</div>
     </button>
   `).join("") || `<div class="list-item">No JDs uploaded yet.</div>`;
-  document.querySelectorAll(".jd-item").forEach((button) => {
+  qsa(".jd-item").forEach((button) => {
     button.addEventListener("click", () => loadShortlist(button.dataset.jdId));
   });
 }
 
 function renderCandidateList() {
-  qs("#candidate-list").innerHTML = hrState.students.map((student) => `
+  qs("#hr-candidate-count").textContent = hrState.students.length;
+  const markup = hrState.students.map((student) => `
     <button class="student-chip ${student.id === hrState.selectedStudentId ? "active" : ""}" data-student-id="${student.id}">
       <div><strong>${student.name}</strong></div>
       <div class="muted">${student.branch} | ${student.readiness_score}% ready | Alerts ${student.alerts_count}</div>
     </button>
   `).join("") || `<div class="list-item">No candidates available yet.</div>`;
 
-  document.querySelectorAll("#candidate-list [data-student-id]").forEach((button) => {
-    button.addEventListener("click", () => loadCandidateDetail(button.dataset.studentId));
+  qs("#candidate-list").innerHTML = markup;
+  qs("#candidate-list-main").innerHTML = hrState.students.map((student) => `
+    <button class="student-chip ${student.id === hrState.selectedStudentId ? "active" : ""}" data-student-id-main="${student.id}">
+      <div class="row-head">
+        <strong>${student.name}</strong>
+        <span class="badge">${student.readiness_score}%</span>
+      </div>
+      <div class="muted">${student.branch} | ${(student.target_roles || []).join(", ") || "No target roles yet"}</div>
+    </button>
+  `).join("") || `<div class="list-item">No candidates available yet.</div>`;
+
+  qsa("#candidate-list [data-student-id], #candidate-list-main [data-student-id-main]").forEach((button) => {
+    button.addEventListener("click", () => loadCandidateDetail(button.dataset.studentId || button.dataset.studentIdMain));
   });
 }
 
 function renderCandidateDetail(student) {
   hrState.selectedStudentId = student.id;
   renderCandidateList();
+  qs("#candidate-empty").hidden = true;
   qs("#candidate-detail").hidden = false;
+  switchView("profile");
   qs("#candidate-profile-content").innerHTML = `
     <div class="detail-top">
       <div>
@@ -173,7 +200,7 @@ async function loadShortlist(jdId) {
     renderJds();
     const response = await apiFetch(`/api/hr/shortlist/${jdId}`);
     const data = await response.json();
-    qs("#shortlist-output").innerHTML = data.candidates.map((candidate) => `
+    const cards = data.candidates.map((candidate) => `
       <div class="list-item shortlist-card" style="cursor:pointer;" data-student-id="${candidate.student_id}">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
           <strong>${candidate.student_name}</strong>
@@ -193,7 +220,18 @@ async function loadShortlist(jdId) {
         <div class="feedback-box" id="match-explanation-${candidate.student_id}" hidden></div>
       </div>
     `).join("") || `<div class="list-item">No candidates matched yet.</div>`;
-    document.querySelectorAll(".shortlist-card, .shortlist-view").forEach((element) => {
+    qs("#shortlist-output").innerHTML = cards;
+    qs("#shortlist-preview").innerHTML = data.candidates.slice(0, 3).map((candidate) => `
+      <div class="list-item">
+        <div class="row-head">
+          <strong>${candidate.student_name}</strong>
+          <span style="color:${heatColor(candidate.match_percentage)}">${candidate.match_percentage}%</span>
+        </div>
+        <p>${candidate.reason}</p>
+      </div>
+    `).join("") || `<div class="list-item">No candidates matched yet.</div>`;
+    switchView("shortlist");
+    qsa(".shortlist-card, .shortlist-view").forEach((element) => {
       element.addEventListener("click", (event) => {
         if (event.target.classList.contains("explain-match")) return;
         const studentId = event.currentTarget.dataset.studentId;
@@ -202,7 +240,7 @@ async function loadShortlist(jdId) {
         }
       });
     });
-    document.querySelectorAll(".explain-match").forEach((button) => {
+    qsa(".explain-match").forEach((button) => {
       button.addEventListener("click", async (event) => {
         event.stopPropagation();
         await handleExplainMatch(button);
@@ -298,6 +336,9 @@ async function handleInvite(event) {
   }
 }
 
+qsa(".ni[data-view]").forEach((item) => {
+  item.addEventListener("click", () => switchView(item.dataset.view));
+});
 qs("#jd-form").addEventListener("submit", handleJdSubmit);
 qs("#invite-form").addEventListener("submit", handleInvite);
 loadBootstrap().catch((error) => setStatus(error.message, true));

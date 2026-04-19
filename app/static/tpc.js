@@ -3,10 +3,23 @@ const tpcState = {
   students: [],
   alerts: [],
   logs: [],
+  activeView: "overview",
 };
 
 function qs(selector) {
   return document.querySelector(selector);
+}
+
+function qsa(selector) {
+  return Array.from(document.querySelectorAll(selector));
+}
+
+function switchView(viewId) {
+  tpcState.activeView = viewId;
+  qsa(".view").forEach((view) => view.classList.remove("active"));
+  qsa(".ni[data-view]").forEach((item) => item.classList.remove("on"));
+  qs(`#v-${viewId}`)?.classList.add("active");
+  qs(`.ni[data-view="${viewId}"]`)?.classList.add("on");
 }
 
 function setStatus(message, isError = false) {
@@ -56,7 +69,8 @@ function renderHeroStats(stats) {
 }
 
 function renderAlerts() {
-  qs("#alerts-list").innerHTML = tpcState.alerts.map((alert) => `
+  qs("#tpc-alert-count").textContent = tpcState.alerts.length;
+  const markup = tpcState.alerts.map((alert) => `
     <div class="alert-card">
       <div class="severity ${alert.severity}">${alert.severity.toUpperCase()}</div>
       <strong>${alert.student_name}</strong>
@@ -69,7 +83,15 @@ function renderAlerts() {
     </div>
   `).join("") || `<div class="list-item">No active alerts right now.</div>`;
 
-  document.querySelectorAll(".alert-action").forEach((button) => {
+  qs("#alerts-list").innerHTML = markup;
+  qs("#alerts-preview").innerHTML = tpcState.alerts.slice(0, 3).map((alert) => `
+    <div class="list-item">
+      <strong>${alert.student_name}</strong>
+      <p>${alert.title}</p>
+    </div>
+  `).join("") || `<div class="list-item">No alerts in the intervention queue.</div>`;
+
+  qsa(".alert-action").forEach((button) => {
     button.addEventListener("click", async () => {
       try {
         await apiFetch(`/api/tpc/alerts/${button.dataset.alertId}/${button.dataset.action}`, { method: "PATCH" });
@@ -93,7 +115,7 @@ function renderRiskList() {
 }
 
 function renderLogs() {
-  qs("#agent-logs").innerHTML = tpcState.logs.map((log) => `
+  const full = tpcState.logs.map((log) => `
     <div class="log-card">
       <div class="panel-title">${log.agent}</div>
       <strong>${log.title}</strong>
@@ -101,6 +123,13 @@ function renderLogs() {
       <div class="muted">${formatTime(log.timestamp)}</div>
     </div>
   `).join("");
+  qs("#agent-logs").innerHTML = full;
+  qs("#agent-logs-preview").innerHTML = tpcState.logs.slice(0, 3).map((log) => `
+    <div class="list-item">
+      <strong>${log.title}</strong>
+      <p>${log.detail}</p>
+    </div>
+  `).join("") || `<div class="list-item">No recent agent activity.</div>`;
 }
 
 function heatColor(score) {
@@ -109,7 +138,21 @@ function heatColor(score) {
   return "#E24B4A";
 }
 
+function renderAnalyticsPreview(analytics) {
+  const readinessEntries = Object.entries(analytics.readiness_by_branch || {}).slice(0, 3);
+  qs("#analytics-preview").innerHTML = readinessEntries.map(([branch, score]) => `
+    <div class="list-item">
+      <div class="row-head">
+        <strong>${branch}</strong>
+        <span style="color:${heatColor(score)}">${score}%</span>
+      </div>
+      <div class="heat-track"><span class="heat-fill" style="width:${score}%; background:${heatColor(score)};"></span></div>
+    </div>
+  `).join("") || `<div class="list-item">No analytics available yet.</div>`;
+}
+
 function renderAnalytics(analytics) {
+  renderAnalyticsPreview(analytics);
   const panel = qs("#analytics-panel");
   const readinessEntries = Object.entries(analytics.readiness_by_branch || {});
   const predictionEntries = Object.entries(analytics.prediction_scores || {}).sort((a, b) => b[1] - a[1]);
@@ -175,6 +218,7 @@ async function loadBootstrap() {
     renderAnalytics(await analyticsRes.json());
   } catch (error) {
     qs("#analytics-panel").innerHTML = `<div class="list-item">Analytics are temporarily unavailable.</div>`;
+    qs("#analytics-preview").innerHTML = `<div class="list-item">Analytics are temporarily unavailable.</div>`;
     setStatus(error.message, true);
   }
 }
@@ -199,16 +243,16 @@ async function generateReport() {
   }
 }
 
-["#run-watchdog", "#run-watchdog-side"].forEach((selector) => {
+qsa(".ni[data-view]").forEach((item) => {
+  item.addEventListener("click", () => switchView(item.dataset.view));
+});
+["#run-watchdog", "#run-watchdog-side", "#run-watchdog-alt"].forEach((selector) => {
   const el = qs(selector);
-  if (el) {
-    el.addEventListener("click", runWatchdog);
-  }
+  if (el) el.addEventListener("click", runWatchdog);
 });
 ["#generate-report", "#generate-report-side"].forEach((selector) => {
   const el = qs(selector);
-  if (el) {
-    el.addEventListener("click", generateReport);
-  }
+  if (el) el.addEventListener("click", generateReport);
 });
+
 loadBootstrap().catch((error) => setStatus(error.message, true));

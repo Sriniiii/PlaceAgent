@@ -23,8 +23,14 @@
         </a>
 
         <div class="sidebar-group">
-          <div class="sidebar-label">Navigation</div>
-          <a class="ni on" href="/hr"><span>Shortlist Console</span></a>
+          <div class="sidebar-label">Recruiter Views</div>
+          <button class="ni on" type="button" data-view="overview"><span>Overview</span></button>
+          <button class="ni" type="button" data-view="shortlist"><span>Shortlists</span></button>
+          <button class="ni" type="button" data-view="candidates"><span>Candidates</span><span class="nav-count" id="hr-candidate-count">0</span></button>
+          <button class="ni" type="button" data-view="profile"><span>Candidate Profile</span></button>
+        </div>
+        <div class="sidebar-group">
+          <div class="sidebar-label">Switch Context</div>
           <a class="ni" href="/student"><span>Student</span></a>
           <a class="ni" href="/tpc"><span>TPC</span></a>
           <a class="ni" href="/"><span>Landing</span></a>
@@ -51,21 +57,60 @@
       <div id="hr-stats" class="hero-stats"></div>
       <div id="hr-status" class="ai-banner" hidden></div>
 
-      <section class="workspace-grid">
-        <div class="workspace-primary">
-          <div class="grid-two">
-            <div class="glass section-card">
-              <div class="panel-title">Upload Job Description</div>
-              <form id="jd-form" class="onboarding-form">
-                <input type="text" name="company_name" placeholder="Company name" required />
-                <input type="text" name="role_title" placeholder="Role title" required />
-                <textarea name="requirements" rows="10" placeholder="Paste the job description or required skills..." required></textarea>
-                <button class="btn btn-primary" type="submit">Generate Shortlist</button>
-              </form>
+      <section id="hr-main">
+        <div class="view active" id="v-overview">
+          <section class="workspace-grid">
+            <div class="workspace-primary">
+              <div class="grid-two">
+                <div class="glass section-card">
+                  <div class="panel-title">Upload Job Description</div>
+                  <form id="jd-form" class="onboarding-form">
+                    <input type="text" name="company_name" placeholder="Company name" required />
+                    <input type="text" name="role_title" placeholder="Role title" required />
+                    <textarea name="requirements" rows="10" placeholder="Paste the job description or required skills..." required></textarea>
+                    <button class="btn btn-primary" type="submit">Generate Shortlist</button>
+                  </form>
+                </div>
+                <div class="glass section-card">
+                  <div class="panel-title">Shortlist Snapshot</div>
+                  <div id="shortlist-preview" class="stack-list"></div>
+                </div>
+              </div>
             </div>
-            <div class="glass section-card">
-              <div class="panel-title">Shortlist Results</div>
-              <div id="shortlist-output" class="stack-list"></div>
+          </section>
+        </div>
+
+        <div class="view" id="v-shortlist">
+          <div class="view-header">
+            <div>
+              <span class="eyebrow">Shortlists</span>
+              <h2>AI-ranked shortlist console</h2>
+            </div>
+          </div>
+          <div class="glass section-card">
+            <div class="panel-title">Shortlist Results</div>
+            <div id="shortlist-output" class="stack-list"></div>
+          </div>
+        </div>
+
+        <div class="view" id="v-candidates">
+          <div class="view-header">
+            <div>
+              <span class="eyebrow">Candidate Browse</span>
+              <h2>All candidates sorted by readiness</h2>
+            </div>
+          </div>
+          <div class="glass section-card">
+            <div class="panel-title">Candidate Browser</div>
+            <div id="candidate-list-main" class="stack-list"></div>
+          </div>
+        </div>
+
+        <div class="view" id="v-profile">
+          <div class="view-header">
+            <div>
+              <span class="eyebrow">Candidate Profile</span>
+              <h2>Detailed fit review and invite flow</h2>
             </div>
           </div>
           <div class="glass section-card" id="candidate-detail" hidden>
@@ -77,6 +122,9 @@
               <input type="text" name="message" placeholder="Optional note to candidate" />
               <button class="btn btn-primary" type="submit">Send Invite</button>
             </form>
+          </div>
+          <div class="glass section-card" id="candidate-empty">
+            <div class="list-item">Select a candidate from the sidebar, shortlist results, or candidate browser to open the full profile here.</div>
           </div>
         </div>
       </section>
