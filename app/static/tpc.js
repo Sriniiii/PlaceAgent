@@ -199,6 +199,16 @@ async function generateReport() {
   }
 }
 
-qs("#run-watchdog").addEventListener("click", runWatchdog);
-qs("#generate-report").addEventListener("click", generateReport);
+["#run-watchdog", "#run-watchdog-side"].forEach((selector) => {
+  const el = qs(selector);
+  if (el) {
+    el.addEventListener("click", runWatchdog);
+  }
+});
+["#generate-report", "#generate-report-side"].forEach((selector) => {
+  const el = qs(selector);
+  if (el) {
+    el.addEventListener("click", generateReport);
+  }
+});
 loadBootstrap().catch((error) => setStatus(error.message, true));

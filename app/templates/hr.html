@@ -6,54 +6,70 @@
   <title>PlaceAgent | HR Portal</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
-<body>
+<body class="app-body">
   <div class="noise"></div>
-  <header class="topbar">
-    <a class="brand brand-link" href="/">
-      <span class="brand-mark"></span>
-      <span>PlaceAgent</span>
-    </a>
-    <nav class="nav">
-      <a href="/">Landing</a>
-      <a href="/student">Student</a>
-      <a href="/tpc">TPC</a>
-      <a href="/hr">HR</a>
-    </nav>
-  </header>
+  <div class="app-shell">
+    <aside class="app-sidebar">
+      <div>
+        <a class="shell-brand" href="/">
+          <span class="shell-brand-mark"></span>
+          <div>
+            <strong>PlaceAgent</strong>
+            <span>Company HR Portal</span>
+          </div>
+        </a>
 
-  <main class="page-shell">
-    <section class="section compact-hero">
-      <div class="section-head">
-        <span class="eyebrow">Company HR Portal</span>
-        <h2>Upload job descriptions and get AI-ranked shortlists</h2>
+        <div class="sidebar-group">
+          <div class="sidebar-label">Navigation</div>
+          <a class="ni on" href="/hr"><span>Shortlist Console</span></a>
+          <a class="ni" href="/student"><span>Student</span></a>
+          <a class="ni" href="/tpc"><span>TPC</span></a>
+          <a class="ni" href="/"><span>Landing</span></a>
+        </div>
       </div>
+
+      <div class="sidebar-footer">
+        <div class="panel-title">Uploaded JDs</div>
+        <div id="jd-list" class="sidebar-student-list"></div>
+        <div class="panel-title" style="margin-top:18px;">All Candidates</div>
+        <div id="candidate-list" class="sidebar-student-list"></div>
+      </div>
+    </aside>
+
+    <main class="app-main">
+      <div class="app-topbar">
+        <div>
+          <span class="eyebrow">Company HR Portal</span>
+          <h2>Upload job descriptions and get AI-ranked shortlists</h2>
+        </div>
+      </div>
+
       <div id="ai-banner" class="ai-banner"></div>
       <div id="hr-stats" class="hero-stats"></div>
       <div id="hr-status" class="ai-banner" hidden></div>
-    </section>
-    <section class="section dashboard">
-      <div class="dashboard-grid">
-        <aside class="glass student-list">
-          <div class="panel-title">Upload Job Description</div>
-          <form id="jd-form" class="onboarding-form">
-            <input type="text" name="company_name" placeholder="Company name" required />
-            <input type="text" name="role_title" placeholder="Role title" required />
-            <textarea name="requirements" rows="10" placeholder="Paste the job description or required skills..." required></textarea>
-            <button class="btn btn-primary" type="submit">Generate Shortlist</button>
-          </form>
-          <div class="panel-title">Uploaded JDs</div>
-          <div id="jd-list" class="stack-list"></div>
-          <div class="panel-title" style="margin-top:1.2rem;">All Candidates</div>
-          <div id="candidate-list" class="stack-list"></div>
-        </aside>
-        <section class="glass student-detail">
-          <div class="panel-title">Shortlist Results</div>
-          <div id="shortlist-output" class="stack-list"></div>
-          <div id="candidate-detail" hidden>
-            <div class="panel-title" style="margin-top:1.2rem;">Candidate Profile</div>
+
+      <section class="workspace-grid">
+        <div class="workspace-primary">
+          <div class="grid-two">
+            <div class="glass section-card">
+              <div class="panel-title">Upload Job Description</div>
+              <form id="jd-form" class="onboarding-form">
+                <input type="text" name="company_name" placeholder="Company name" required />
+                <input type="text" name="role_title" placeholder="Role title" required />
+                <textarea name="requirements" rows="10" placeholder="Paste the job description or required skills..." required></textarea>
+                <button class="btn btn-primary" type="submit">Generate Shortlist</button>
+              </form>
+            </div>
+            <div class="glass section-card">
+              <div class="panel-title">Shortlist Results</div>
+              <div id="shortlist-output" class="stack-list"></div>
+            </div>
+          </div>
+          <div class="glass section-card" id="candidate-detail" hidden>
+            <div class="panel-title">Candidate Profile</div>
             <div id="candidate-profile-content" class="stack-list"></div>
             <form id="invite-form" class="onboarding-form" style="margin-top:1rem;" hidden>
               <div class="subhead">Send Interview Invite</div>
@@ -62,10 +78,10 @@
               <button class="btn btn-primary" type="submit">Send Invite</button>
             </form>
           </div>
-        </section>
-      </div>
-    </section>
-  </main>
+        </div>
+      </section>
+    </main>
+  </div>
   <script src="/static/hr.js"></script>
 </body>
 </html>

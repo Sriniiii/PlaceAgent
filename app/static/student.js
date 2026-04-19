@@ -3,23 +3,33 @@ const state = {
   ai: null,
   selectedStudentId: null,
   activeSessionId: null,
+  activeView: "dashboard",
   interviewMode: "text",
   voiceSupported: false,
   voiceListening: false,
   finalTranscript: "",
   recognition: null,
   micStream: null,
+  mentorLoaded: false,
+  interviewLoaded: false,
 };
 
 function qs(selector) {
   return document.querySelector(selector);
 }
 
+function qsa(selector) {
+  return Array.from(document.querySelectorAll(selector));
+}
+
 function setStatus(message, isError = false) {
-  const el = qs("#student-status");
-  el.hidden = !message;
-  el.className = `ai-banner ${isError ? "offline" : ""}`.trim();
-  el.textContent = message || "";
+  ["#student-status", "#student-status-dashboard"].forEach((selector) => {
+    const el = qs(selector);
+    if (!el) return;
+    el.hidden = !message;
+    el.className = `ai-banner ${isError ? "offline" : ""}`.trim();
+    el.textContent = message || "";
+  });
 }
 
 async function apiFetch(url, options = {}) {
@@ -50,6 +60,7 @@ function getSpeechRecognition() {
 
 function setVoiceStatus(message, isError = false) {
   const el = qs("#voice-status");
+  if (!el) return;
   el.hidden = false;
   el.className = `feedback-box ${isError ? "voice-error" : ""}`.trim();
   el.textContent = message;
@@ -57,6 +68,7 @@ function setVoiceStatus(message, isError = false) {
 
 function renderVoiceTranscript(text) {
   const el = qs("#voice-transcript");
+  if (!el) return;
   el.hidden = false;
   el.textContent = text || "No transcript yet.";
 }
@@ -104,9 +116,32 @@ function speakText(text) {
     setVoiceStatus("Reading the question aloud...");
   };
   utterance.onerror = () => {
-    setVoiceStatus("Audio playback was blocked. Use Replay Question again and allow audio if the browser prompts.", true);
+    setVoiceStatus("Audio playback was blocked. Replay the question after allowing audio.", true);
   };
   window.speechSynthesis.speak(utterance);
+}
+
+function getSelectedStudent() {
+  return state.students.find((item) => item.id === state.selectedStudentId) || state.students[0] || null;
+}
+
+function switchView(viewId) {
+  state.activeView = viewId;
+  qsa(".view").forEach((view) => view.classList.remove("active"));
+  qsa(".ni").forEach((item) => item.classList.remove("on"));
+  const targetView = qs(`#v-${viewId}`);
+  const targetNav = qs(`.ni[data-view="${viewId}"]`);
+  if (targetView) targetView.classList.add("active");
+  if (targetNav) targetNav.classList.add("on");
+
+  if (viewId === "interview" && !state.interviewLoaded) {
+    state.interviewLoaded = true;
+    renderInterviewView(getSelectedStudent());
+  }
+  if (viewId === "mentor" && !state.mentorLoaded && state.selectedStudentId) {
+    state.mentorLoaded = true;
+    loadChatHistory(state.selectedStudentId).catch((error) => setStatus(error.message, true));
+  }
 }
 
 function updateInterviewModeUi() {
@@ -229,11 +264,14 @@ async function startVoiceListening() {
 }
 
 function renderAiBanner(ai) {
-  const el = qs("#ai-banner");
-  el.className = `ai-banner ${ai.enabled ? "" : "offline"}`.trim();
-  el.innerHTML = ai.enabled
-    ? `Student intelligence is running in live AI mode with <strong>${ai.model}</strong>.`
-    : `Student intelligence is in fallback mode. Add <code>GEMINI_API_KEY</code> to enable live AI coaching.`;
+  ["#ai-banner", "#ai-banner-dashboard"].forEach((selector) => {
+    const el = qs(selector);
+    if (!el) return;
+    el.className = `ai-banner ${ai.enabled ? "" : "offline"}`.trim();
+    el.innerHTML = ai.enabled
+      ? `Student intelligence is running in live AI mode with <strong>${ai.model}</strong>.`
+      : `Student intelligence is in fallback mode. Add <code>GEMINI_API_KEY</code> to enable live AI coaching.`;
+  });
 }
 
 function renderStudentList() {
@@ -248,12 +286,14 @@ function renderStudentList() {
     </button>
   `).join("");
 
-  document.querySelectorAll("[data-student-id]").forEach((button) => {
+  qsa("#student-list [data-student-id]").forEach((button) => {
     button.addEventListener("click", () => {
       state.selectedStudentId = button.dataset.studentId;
       state.activeSessionId = null;
+      state.mentorLoaded = false;
+      state.interviewLoaded = false;
+      renderAll(getSelectedStudent());
       renderStudentList();
-      renderSelectedStudent();
     });
   });
 }
@@ -267,6 +307,15 @@ function renderStudentMode() {
   }
 }
 
+function renderSidebarProfile(student) {
+  qs("#sidebar-student-name").textContent = student?.name || "No student";
+  qs("#sidebar-student-branch").textContent = student
+    ? `${student.branch} · ${student.graduation_year || "Current cohort"}`
+    : "Create a profile to begin";
+  const avatar = qs("#sidebar-student-avatar");
+  avatar.textContent = student ? student.name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase() : "PA";
+}
+
 function renderMetrics(student) {
   qs("#student-metrics").innerHTML = [
     ["Resume", `${student.resume_score}%`],
@@ -274,38 +323,15 @@ function renderMetrics(student) {
     ["Confidence", `${student.confidence_score}%`],
     ["Alerts", student.alerts_count],
   ].map(([label, value]) => `
-    <div class="list-item">
+    <div class="metric-card">
       <div class="panel-title">${label}</div>
       <h3>${value}</h3>
     </div>
   `).join("");
 }
 
-function renderPlan(student) {
-  qs("#weekly-plan").innerHTML = student.weekly_plan.map((week) => `
-    <div class="plan-card">
-      <strong>Week ${week.week}: ${week.focus}</strong>
-      <p>${week.tasks.join(" | ")}</p>
-    </div>
-  `).join("");
-}
-
-function renderMatches(student) {
-  qs("#matches").innerHTML = student.matches.map((match) => `
-    <div class="match-card">
-      <strong>${match.company}</strong>
-      <div>${match.role} | ${match.score}% fit</div>
-      <p>${match.reason}</p>
-      <p><strong>Missing:</strong> ${(match.missing_skills || []).join(", ") || "No major blockers identified"}</p>
-    </div>
-  `).join("");
-}
-
-function renderSelectedStudent() {
-  const student = state.students.find((item) => item.id === state.selectedStudentId) || state.students[0];
-  if (!student) return;
-
-  state.selectedStudentId = student.id;
+function renderDashboard(student) {
+  qs("#hero-student-name").textContent = `${student.name}'s placement workspace`;
   qs("#student-name").textContent = student.name;
   qs("#student-summary").textContent = student.summary;
   qs("#student-readiness").textContent = student.readiness_score;
@@ -313,52 +339,84 @@ function renderSelectedStudent() {
   if (ring) {
     ring.style.setProperty("--pct", student.readiness_score);
   }
-  qs("#resume-output").innerHTML = `
+  const previewTasks = (student.tasks || []).slice(0, 3);
+  qs("#dashboard-task-preview").innerHTML = previewTasks.map((task) => `
     <div class="list-item">
-      <strong>${student.recent_resume_name || "No resume yet"}</strong>
-      <p>${student.parsed_resume_excerpt || "Upload a resume to trigger Scout, Matcher, and Planner."}</p>
+      <div class="row-head">
+        <strong>${task.title}</strong>
+        <span class="task-pill ${task.status}">${task.status}</span>
+      </div>
+      <p>${task.description}</p>
+      <p class="muted">Due ${task.due_date}</p>
     </div>
+  `).join("") || `<div class="list-item">No tasks yet.</div>`;
+
+  const alertCards = [];
+  if (student.alerts_count > 0) {
+    alertCards.push(`
+      <div class="list-item">
+        <strong>${student.alerts_count} active alert${student.alerts_count === 1 ? "" : "s"}</strong>
+        <p>Watchdog has marked this profile as needing intervention.</p>
+      </div>
+    `);
+  }
+  if ((student.skill_gaps || []).length) {
+    alertCards.push(`
+      <div class="list-item">
+        <strong>Top gaps</strong>
+        <p>${student.skill_gaps.slice(0, 4).join(" | ")}</p>
+      </div>
+    `);
+  }
+  qs("#dashboard-alerts").innerHTML = alertCards.join("") || `<div class="list-item">No blockers right now.</div>`;
+}
+
+function renderTaskProgress(student) {
+  const tasks = student.tasks || [];
+  const total = tasks.length || 1;
+  const done = tasks.filter((task) => task.status === "done").length;
+  const missed = tasks.filter((task) => task.status === "missed").length;
+  const pending = tasks.filter((task) => task.status === "pending").length;
+  const weekGroups = Array.from(new Set(tasks.map((task) => task.week || task.due_date || "Current"))).slice(0, 4);
+  qs("#task-progress-summary").innerHTML = `
     <div class="list-item">
-      <strong>Skills</strong>
-      <p>${student.skills.join(" | ")}</p>
+      <strong>Overall execution</strong>
+      <div class="heat-track"><span class="heat-fill" style="width:${Math.round((done / total) * 100)}%;"></span></div>
+      <p>${done} done · ${pending} pending · ${missed} missed</p>
     </div>
-    <div class="list-item">
-      <strong>Skill Gaps</strong>
-      <p>${student.skill_gaps.join(" | ")}</p>
-    </div>
+    ${weekGroups.map((label, index) => `
+      <div class="list-item">
+        <div class="row-head">
+          <strong>Phase ${index + 1}</strong>
+          <span class="muted">${label}</span>
+        </div>
+        <p>Track completion and unblock missed deliverables before the next checkpoint.</p>
+      </div>
+    `).join("")}
   `;
-  qs("#student-insights").innerHTML = `
-    <div class="list-item">
-      <strong>Strengths</strong>
-      <p>${(student.strengths || []).join(" | ") || "Upload a resume to extract strengths."}</p>
-    </div>
-    <div class="list-item">
-      <strong>Improvement Priorities</strong>
-      <p>${(student.improvement_priorities || []).join(" | ") || "No priorities available yet."}</p>
-    </div>
-  `;
-  renderMetrics(student);
-  renderPlan(student);
-  renderMatches(student);
-  renderTasks(student);
-  loadProgress(student.id);
-  loadChatHistory(student.id);
-  updateInterviewModeUi();
 }
 
 function renderTasks(student) {
-  qs("#task-list").innerHTML = (student.tasks || []).map((task) => `
-    <div class="list-item">
-      <strong>${task.title}</strong>
+  const tasks = student.tasks || [];
+  qs("#nav-task-count").textContent = tasks.filter((task) => task.status !== "done").length;
+  renderTaskProgress(student);
+  qs("#task-list").innerHTML = tasks.map((task, index) => `
+    <div class="list-item task-card">
+      <div class="row-head">
+        <div>
+          <strong>${task.title}</strong>
+          <div class="muted">Week ${task.week || Math.min(index + 1, 4)} · Due ${task.due_date}</div>
+        </div>
+        <span class="task-pill ${task.status}">${task.status}</span>
+      </div>
       <p>${task.description}</p>
-      <p><strong>Due:</strong> ${task.due_date} | <strong>Status:</strong> ${task.status}</p>
       <div class="cta-row">
         <button class="btn btn-secondary btn-small task-status" data-task-id="${task.id}" data-status="done">Mark Done</button>
         <button class="btn btn-secondary btn-small task-status" data-task-id="${task.id}" data-status="missed">Mark Missed</button>
       </div>
     </div>
   `).join("") || `<div class="list-item">No tasks yet.</div>`;
-  document.querySelectorAll(".task-status").forEach((button) => {
+  qsa(".task-status").forEach((button) => {
     button.addEventListener("click", async () => {
       try {
         const formData = new FormData();
@@ -371,6 +429,128 @@ function renderTasks(student) {
       }
     });
   });
+}
+
+function renderRoadmap(student) {
+  const weeks = student.weekly_plan || [];
+  qs("#weekly-plan").innerHTML = weeks.map((week) => `
+    <div class="roadmap-card">
+      <div class="roadmap-step">${week.week}</div>
+      <div>
+        <strong>Week ${week.week}: ${week.focus}</strong>
+        <p>${week.tasks.join(" | ")}</p>
+      </div>
+    </div>
+  `).join("") || `<div class="list-item">No weekly plan yet.</div>`;
+  const activeWeek = weeks[0];
+  qs("#roadmap-focus").innerHTML = activeWeek ? `
+    <div class="list-item">
+      <strong>Current focus</strong>
+      <p>${activeWeek.focus}</p>
+    </div>
+    ${activeWeek.tasks.map((task) => `<div class="list-item">${task}</div>`).join("")}
+  ` : `<div class="list-item">Upload a resume to generate the preparation roadmap.</div>`;
+}
+
+function inferSkillStrength(skill, student) {
+  const base = 48 + ((student.readiness_score || 0) % 24);
+  const bonus = skill.length % 18;
+  return Math.min(96, base + bonus);
+}
+
+function renderSkills(student) {
+  qs("#skills-proficiency").innerHTML = (student.skills || []).map((skill) => {
+    const strength = inferSkillStrength(skill, student);
+    return `
+      <div class="list-item">
+        <div class="row-head">
+          <strong>${skill}</strong>
+          <span class="muted">${strength}%</span>
+        </div>
+        <div class="heat-track">
+          <span class="heat-fill" style="width:${strength}%;"></span>
+        </div>
+      </div>
+    `;
+  }).join("") || `<div class="list-item">No parsed skills yet.</div>`;
+
+  qs("#skills-gap-cards").innerHTML = (student.skill_gaps || []).map((gap) => `
+    <div class="list-item gap-card">
+      <strong>${gap}</strong>
+      <p>${(student.improvement_priorities || []).find((item) => item.toLowerCase().includes(gap.toLowerCase())) || "Coach recommends focused remedial practice in this area."}</p>
+    </div>
+  `).join("") || `<div class="list-item">No major gaps identified yet.</div>`;
+}
+
+function renderResume(student) {
+  qs("#resume-output").innerHTML = `
+    <div class="list-item">
+      <strong>${student.recent_resume_name || "No resume uploaded yet"}</strong>
+      <p>${student.parsed_resume_excerpt || "Upload a resume to trigger Scout, Matcher, and Planner."}</p>
+    </div>
+    <div class="list-item">
+      <strong>Detected skills</strong>
+      <p>${(student.skills || []).join(" | ") || "No skills extracted yet."}</p>
+    </div>
+    <div class="list-item">
+      <strong>Gap summary</strong>
+      <p>${(student.skill_gaps || []).join(" | ") || "No gap analysis available yet."}</p>
+    </div>
+  `;
+  qs("#student-insights").innerHTML = `
+    <div class="list-item">
+      <strong>Strengths</strong>
+      <p>${(student.strengths || []).join(" | ") || "Upload a resume to extract strengths."}</p>
+    </div>
+    <div class="list-item">
+      <strong>Improvement priorities</strong>
+      <p>${(student.improvement_priorities || []).join(" | ") || "No priorities available yet."}</p>
+    </div>
+  `;
+}
+
+function renderMatches(student) {
+  const matches = student.matches || [];
+  qs("#nav-match-count").textContent = matches.length;
+  qs("#matches").innerHTML = matches.map((match) => `
+    <div class="match-card glass">
+      <div class="row-head">
+        <div>
+          <strong>${match.company}</strong>
+          <div class="muted">${match.role}</div>
+        </div>
+        <span class="match-score">${match.score}% fit</span>
+      </div>
+      <div class="heat-track">
+        <span class="heat-fill" style="width:${match.score}%;"></span>
+      </div>
+      <p>${match.reason}</p>
+      <p><strong>Missing:</strong> ${(match.missing_skills || []).join(", ") || "No major blockers identified"}</p>
+    </div>
+  `).join("") || `<div class="list-item">No company matches yet.</div>`;
+}
+
+function renderInterviewView(student) {
+  if (!student) return;
+  qs("#interview-feedback").innerHTML = `
+    <div class="list-item">
+      <strong>Interview context</strong>
+      <p>Questions will lean toward ${student.skill_gaps?.slice(0, 3).join(", ") || "current placement priorities"} and ${student.target_roles?.[0] || "target roles"}.</p>
+    </div>
+    <div class="list-item">
+      <strong>Last known score</strong>
+      <p>${student.interview_score}% overall interview readiness.</p>
+    </div>
+  `;
+}
+
+function renderChatMessages(history) {
+  qs("#chat-history").innerHTML = history.map((msg) => `
+    <div class="chat-bubble ${msg.role === "assistant" ? "assistant" : "user"}">
+      <strong>${msg.role === "assistant" ? "Mentor" : "You"}</strong>
+      <p>${msg.content}</p>
+    </div>
+  `).join("") || `<div class="list-item">No chat yet. Ask the mentor something.</div>`;
 }
 
 function renderSparkline(scores) {
@@ -392,10 +572,17 @@ async function loadProgress(studentId) {
   const scores = progress.interview_scores || [];
   qs("#progress-panel").innerHTML = `
     <div class="list-item">
-      <strong>Progress Snapshot</strong>
-      <p>Completion rate: ${progress.completion_rate}% | Percentile rank: ${progress.percentile_rank}%</p>
-      <p>Completed tasks: ${progress.completed_tasks}/${progress.total_tasks}</p>
-      <p>Interview trend: ${scores.length ? scores.join(" -> ") : "No interviews yet"}</p>
+      <strong>Execution rate</strong>
+      <div class="heat-track"><span class="heat-fill" style="width:${progress.completion_rate}%;"></span></div>
+      <p>${progress.completion_rate}% complete · Percentile ${progress.percentile_rank}%</p>
+    </div>
+    <div class="list-item">
+      <strong>Completed tasks</strong>
+      <p>${progress.completed_tasks}/${progress.total_tasks}</p>
+    </div>
+    <div class="list-item">
+      <strong>Interview trend</strong>
+      <p>${scores.length ? scores.join(" -> ") : "No interviews yet"}</p>
       ${renderSparkline(scores)}
     </div>
   `;
@@ -404,9 +591,7 @@ async function loadProgress(studentId) {
 async function loadChatHistory(studentId) {
   const response = await apiFetch(`/api/chat/history/${studentId}`);
   const history = await response.json();
-  qs("#chat-history").innerHTML = history.map((msg) => `
-    <p><strong>${msg.role === "assistant" ? "Mentor" : "You"}:</strong> ${msg.content}</p>
-  `).join("") || "No chat yet. Ask the mentor something.";
+  renderChatMessages(history);
 }
 
 async function refreshStudent() {
@@ -414,8 +599,30 @@ async function refreshStudent() {
   const response = await apiFetch(`/api/students/${state.selectedStudentId}`);
   const student = await response.json();
   state.students = state.students.map((item) => item.id === student.id ? student : item);
+  renderAll(student);
   renderStudentList();
-  renderSelectedStudent();
+}
+
+function renderAll(student) {
+  if (!student) return;
+  state.selectedStudentId = student.id;
+  renderSidebarProfile(student);
+  renderDashboard(student);
+  renderMetrics(student);
+  renderTasks(student);
+  renderRoadmap(student);
+  renderSkills(student);
+  renderResume(student);
+  renderMatches(student);
+  loadProgress(student.id).catch((error) => setStatus(error.message, true));
+  if (state.activeView === "mentor" || state.mentorLoaded) {
+    loadChatHistory(student.id).catch((error) => setStatus(error.message, true));
+    state.mentorLoaded = true;
+  }
+  if (state.activeView === "interview" || state.interviewLoaded) {
+    renderInterviewView(student);
+    state.interviewLoaded = true;
+  }
 }
 
 async function refreshBootstrap() {
@@ -426,11 +633,9 @@ async function refreshBootstrap() {
   state.selectedStudentId = state.selectedStudentId || data.featured_student_id;
   renderAiBanner(data.ai);
   renderStudentMode();
-  if (!state.students.length) {
-    return;
-  }
+  if (!state.students.length) return;
   renderStudentList();
-  renderSelectedStudent();
+  renderAll(getSelectedStudent());
 }
 
 async function handleStudentCreate(event) {
@@ -450,7 +655,7 @@ async function handleStudentCreate(event) {
     state.selectedStudentId = result.student.id;
     renderStudentMode();
     renderStudentList();
-    renderSelectedStudent();
+    renderAll(result.student);
     form.reset();
     const inlinePanel = qs("#student-create-inline");
     if (inlinePanel) {
@@ -466,13 +671,14 @@ async function handleStudentCreate(event) {
 
 async function handleResumeUpload(event) {
   event.preventDefault();
+  const form = event.currentTarget;
   const fileInput = qs("#resume-file");
   const file = fileInput.files[0];
   if (!file || !state.selectedStudentId) return;
 
   const formData = new FormData();
   formData.append("file", file);
-  const submitButton = event.currentTarget.querySelector('button[type="submit"]');
+  const submitButton = form.querySelector('button[type="submit"]');
 
   try {
     setStatus("Uploading resume and refreshing insights...");
@@ -484,12 +690,13 @@ async function handleResumeUpload(event) {
     const result = await response.json();
     state.students = state.students.map((student) => student.id === result.student.id ? result.student : student);
     renderStudentList();
-    renderSelectedStudent();
+    renderAll(result.student);
     setStatus(`Resume analyzed via ${result.source}.`);
   } catch (error) {
     setStatus(error.message, true);
   } finally {
     setButtonLoading(submitButton, false);
+    form.reset();
   }
 }
 
@@ -575,9 +782,7 @@ async function handleChat(event) {
     const response = await apiFetch("/api/chat", { method: "POST", body: formData });
     const result = await response.json();
     qs("#chat-message").value = "";
-    qs("#chat-history").innerHTML = result.history.map((msg) => `
-      <p><strong>${msg.role === "assistant" ? "Mentor" : "You"}:</strong> ${msg.content}</p>
-    `).join("");
+    renderChatMessages(result.history);
   } catch (error) {
     setStatus(error.message, true);
   }
@@ -618,7 +823,7 @@ function bindForms() {
     }
   });
   qs("#mic-modal-close").addEventListener("click", hideMicModal);
-  document.querySelectorAll("[data-mic-close]").forEach((element) => {
+  qsa("[data-mic-close]").forEach((element) => {
     element.addEventListener("click", hideMicModal);
   });
   qs("#show-add-student").addEventListener("click", () => {
@@ -627,6 +832,12 @@ function bindForms() {
   qs("#cancel-add-student").addEventListener("click", () => {
     qs("#student-create-inline").hidden = true;
     qs("#student-create-inline-form").reset();
+  });
+  qsa(".ni[data-view]").forEach((item) => {
+    item.addEventListener("click", () => switchView(item.dataset.view));
+  });
+  qsa("[data-view-jump]").forEach((item) => {
+    item.addEventListener("click", () => switchView(item.dataset.viewJump));
   });
 }
 
