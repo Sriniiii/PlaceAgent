@@ -8,147 +8,263 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/student-portal.css" />
 </head>
-<body>
+<body class="theme-student student-shell">
   <div class="noise"></div>
-  <header class="topbar">
-    <a class="brand brand-link" href="/">
-      <span class="brand-mark"></span>
-      <span>PlaceAgent</span>
-    </a>
-    <nav class="nav">
-      <a href="/">Landing</a>
-      <a href="/student">Student</a>
-      <a href="/tpc">TPC</a>
-      <a href="/hr">HR</a>
-    </nav>
-  </header>
 
-  <main class="page-shell">
-    <section class="section compact-hero">
-      <div class="section-head">
-        <span class="eyebrow">Student Dashboard</span>
-        <h2>Readiness, resume intelligence, role matches, and live interview coaching</h2>
+  <div id="student-empty-state" class="student-empty-wrap">
+    <section class="student-empty-card glass">
+      <div class="student-empty-copy">
+        <span class="eyebrow">Student Portal</span>
+        <h1>Build a polished student workspace from a real profile.</h1>
+        <p>Create a student, upload a resume, and let PlaceAgent populate the dashboard with live readiness, skills, roadmap, and interview coaching.</p>
       </div>
-      <div id="ai-banner" class="ai-banner"></div>
-      <div id="student-status" class="ai-banner" hidden></div>
+      <form id="student-create-form" class="onboarding-form student-empty-form">
+        <input type="text" name="name" placeholder="Student name" required />
+        <input type="text" name="degree" placeholder="Degree (B.Tech, B.E., MCA...)" required />
+        <input type="text" name="branch" placeholder="Branch / specialization" required />
+        <input type="number" name="graduation_year" placeholder="Graduation year" min="2024" max="2035" required />
+        <input type="text" name="target_roles" placeholder="Target roles (comma separated)" />
+        <input type="text" name="preferred_companies" placeholder="Preferred companies (comma separated)" />
+        <input type="file" id="create-resume-file" name="file" required />
+        <button class="btn btn-primary" type="submit">Create Profile And Analyze Resume</button>
+      </form>
     </section>
+  </div>
 
-    <section class="section dashboard">
-      <div id="student-empty-state" class="glass onboarding-card">
-        <div class="panel-title">Create Student Profile</div>
-        <h3>Start with a real student and a real resume</h3>
-        <p>Nothing is preloaded anymore. Add the student details below, upload the actual resume, and the agents will generate live insights.</p>
-        <form id="student-create-form" class="onboarding-form">
-          <input type="text" name="name" placeholder="Student name" required />
-          <input type="text" name="degree" placeholder="Degree (B.Tech, B.E., MCA...)" required />
-          <input type="text" name="branch" placeholder="Branch / specialization" required />
-          <input type="number" name="graduation_year" placeholder="Graduation year" min="2024" max="2035" required />
-          <input type="text" name="target_roles" placeholder="Target roles (comma separated)" />
-          <input type="text" name="preferred_companies" placeholder="Preferred companies (comma separated)" />
-          <input type="file" id="create-resume-file" name="file" required />
-          <button class="btn btn-primary" type="submit">Create Profile And Analyze Resume</button>
-        </form>
-      </div>
-
-      <div id="student-dashboard" class="dashboard-grid" hidden>
-        <aside class="glass student-list">
-          <div class="row-head">
-            <div class="panel-title">Students</div>
-            <button class="btn btn-secondary btn-small" id="show-add-student" type="button">Add Student</button>
-          </div>
-          <div id="student-create-inline" class="inline-create-panel" hidden>
-            <form id="student-create-inline-form" class="onboarding-form compact-form">
-              <input type="text" name="name" placeholder="Student name" required />
-              <input type="text" name="degree" placeholder="Degree" required />
-              <input type="text" name="branch" placeholder="Branch / specialization" required />
-              <input type="number" name="graduation_year" placeholder="Graduation year" min="2024" max="2035" required />
-              <input type="text" name="target_roles" placeholder="Target roles (comma separated)" />
-              <input type="text" name="preferred_companies" placeholder="Preferred companies (comma separated)" />
-              <input type="file" name="file" required />
-              <div class="cta-row">
-                <button class="btn btn-primary" type="submit">Create Student</button>
-                <button class="btn btn-secondary" id="cancel-add-student" type="button">Cancel</button>
-              </div>
-            </form>
-          </div>
-          <div id="student-list"></div>
-        </aside>
-        <section class="glass student-detail">
-          <div class="detail-top">
-            <div>
-              <div class="panel-title">Profile</div>
-              <h3 id="student-name">Loading...</h3>
-              <p id="student-summary"></p>
+  <div id="student-dashboard" class="student-page" hidden>
+    <aside class="student-sidebar glass">
+      <a class="student-brand" href="/">
+        <span class="student-brand-mark"></span>
+        <div>
+          <div class="student-brand-name">PlaceAgent</div>
+          <div class="student-brand-sub">Student Portal</div>
+        </div>
+      </a>
+      <nav class="student-nav">
+        <div class="student-nav-label">Workspace</div>
+        <a class="student-nav-item active" href="#student-overview">Dashboard</a>
+        <a class="student-nav-item" href="#resume-section">Resume Hub</a>
+        <a class="student-nav-item" href="#roadmap-section">Roadmap</a>
+        <a class="student-nav-item" href="#mentor-section">AI Mentor</a>
+        <a class="student-nav-item" href="#interview-section">Mock Interview</a>
+        <div class="student-nav-label">Portals</div>
+        <a class="student-nav-item" href="/tpc">TPC View</a>
+        <a class="student-nav-item" href="/hr">HR Portal</a>
+        <a class="student-nav-item" href="/">Landing</a>
+      </nav>
+      <section class="student-sidebar-section">
+        <div class="row-head">
+          <div class="panel-title">Students</div>
+          <button class="btn btn-secondary btn-small" id="show-add-student" type="button">Add</button>
+        </div>
+        <div id="student-create-inline" class="inline-create-panel" hidden>
+          <form id="student-create-inline-form" class="onboarding-form compact-form">
+            <input type="text" name="name" placeholder="Student name" required />
+            <input type="text" name="degree" placeholder="Degree" required />
+            <input type="text" name="branch" placeholder="Branch / specialization" required />
+            <input type="number" name="graduation_year" placeholder="Graduation year" min="2024" max="2035" required />
+            <input type="text" name="target_roles" placeholder="Target roles (comma separated)" />
+            <input type="text" name="preferred_companies" placeholder="Preferred companies (comma separated)" />
+            <input type="file" name="file" required />
+            <div class="cta-row">
+              <button class="btn btn-primary" type="submit">Create Student</button>
+              <button class="btn btn-secondary" id="cancel-add-student" type="button">Cancel</button>
             </div>
-            <div class="score-ring">
-              <span id="student-readiness">0</span>
+          </form>
+        </div>
+        <div id="student-list" class="student-roster"></div>
+      </section>
+      <div class="student-sidebar-footer">
+        <div class="student-user-pill">
+          <div class="student-avatar" id="sidebar-student-initial">S</div>
+          <div>
+            <div class="student-user-name" id="sidebar-student-name">Student</div>
+            <div class="student-user-role" id="sidebar-student-role">Readiness profile</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="student-main">
+      <section class="student-hero" id="student-overview">
+        <div class="student-page-header">
+          <div>
+            <span class="eyebrow">Student Dashboard</span>
+            <h1 id="student-greeting">Good morning, Student.</h1>
+            <p id="student-summary">Loading profile intelligence...</p>
+          </div>
+          <div class="cta-row student-header-actions">
+            <button class="btn btn-primary" id="open-resume-upload" type="button">Upload Resume</button>
+            <a class="btn btn-secondary" href="/tpc">Open TPC View</a>
+          </div>
+        </div>
+        <div id="ai-banner" class="ai-banner"></div>
+        <div id="student-status" class="ai-banner" hidden></div>
+        <div class="student-readiness-card glass">
+          <div class="student-readiness-ring" id="student-readiness-ring" style="--readiness: 0;">
+            <div class="student-readiness-core">
+              <span id="student-readiness">0%</span>
               <small>Readiness</small>
             </div>
           </div>
+          <div class="student-readiness-copy">
+            <div class="panel-title">Placement Readiness</div>
+            <h2 id="student-readiness-title">Ready to move toward shortlist tier</h2>
+            <p id="student-readiness-summary">Your latest insights will appear here once a profile is loaded.</p>
+            <div id="student-stat-chips" class="student-stat-row"></div>
+          </div>
+        </div>
+        <div id="student-metrics" class="student-metric-grid"></div>
+      </section>
 
-          <div class="metrics-row" id="student-metrics"></div>
-          <div id="progress-panel" class="stack-list"></div>
+      <section class="student-section">
+        <div class="section-label">Feature Hub</div>
+        <div id="student-feature-cards" class="student-feature-grid"></div>
+      </section>
 
-          <div class="detail-columns">
+      <section class="student-bottom-grid">
+        <div class="student-panel glass">
+          <div class="student-panel-head">
+            <div class="panel-title">Today's Tasks</div>
+            <a href="#tasks-section">View all</a>
+          </div>
+          <div id="student-quick-tasks" class="student-quick-list"></div>
+        </div>
+        <div class="student-panel glass">
+          <div class="student-panel-head">
+            <div class="panel-title">Placement Signals</div>
+            <a href="#matches-section">Open detail</a>
+          </div>
+          <div id="student-alerts" class="student-alert-stack"></div>
+        </div>
+      </section>
+
+      <section class="student-detail-grid">
+        <div class="student-panel glass" id="resume-section">
+          <div class="student-panel-head">
             <div>
-              <div class="subhead">Resume Intelligence</div>
-              <form id="resume-form" class="upload-box">
-                <input type="file" id="resume-file" name="file" />
-                <button class="btn btn-primary" type="submit">Upload And Analyze</button>
-              </form>
-              <div class="resume-output" id="resume-output"></div>
-              <div class="subhead">Strengths and Priorities</div>
-              <div id="student-insights" class="stack-list"></div>
-              <div class="subhead">Weekly Plan</div>
-              <div id="weekly-plan" class="stack-list"></div>
-              <div class="subhead">Daily Tasks</div>
-              <div id="task-list" class="stack-list"></div>
+              <div class="panel-title">Resume Hub</div>
+              <h3>ScoutAgent output</h3>
             </div>
+            <button class="btn btn-secondary btn-small" data-open-upload type="button">Re-upload</button>
+          </div>
+          <div id="resume-output" class="stack-list"></div>
+          <div class="student-panel-head student-subsection-head">
+            <div class="panel-title">Strengths And Priorities</div>
+          </div>
+          <div id="student-insights" class="stack-list"></div>
+        </div>
+        <div class="student-panel glass">
+          <div class="student-panel-head">
             <div>
-              <div class="subhead">Best-Fit Roles</div>
-              <div id="matches" class="stack-list"></div>
-              <div class="subhead">AI Mentor Chat</div>
-              <div class="interview-box">
-                <div id="chat-history" class="feedback-box"></div>
-                <form id="chat-form">
-                  <textarea id="chat-message" rows="4" placeholder="Ask the AI mentor anything about your preparation..."></textarea>
-                  <button class="btn btn-primary" type="submit">Send To Mentor</button>
-                </form>
-              </div>
-              <div class="subhead">Mock Interview</div>
-              <form id="start-interview-form" class="inline-form">
-                <select id="interview-tone" name="tone">
-                  <option value="supportive">Supportive</option>
-                  <option value="challenging">Challenging</option>
-                </select>
-                <select id="interview-mode" name="mode">
-                  <option value="text">Text</option>
-                  <option value="voice">Voice</option>
-                </select>
-                <button class="btn btn-secondary" type="submit">Start Interview</button>
-              </form>
-              <div class="interview-box">
-                <div id="interview-question" class="question-box">Start a session to generate the first question.</div>
-                <div id="voice-status" class="feedback-box" hidden>Voice mode is ready.</div>
-                <div id="voice-transcript" class="feedback-box" hidden>No transcript yet.</div>
-                <div class="cta-row" id="voice-controls" hidden>
-                  <button class="btn btn-secondary" id="voice-toggle" type="button">Start Listening</button>
-                  <button class="btn btn-secondary" id="voice-submit" type="button">Submit Voice Answer</button>
-                  <button class="btn btn-secondary" id="voice-replay" type="button">Replay Question</button>
-                </div>
-                <form id="interview-reply-form">
-                  <textarea id="interview-answer" rows="5" placeholder="Answer the interview question here..."></textarea>
-                  <button class="btn btn-primary" type="submit">Send Answer</button>
-                </form>
-                <div id="interview-feedback" class="feedback-box"></div>
-              </div>
+              <div class="panel-title">Progress Snapshot</div>
+              <h3>Momentum over time</h3>
             </div>
           </div>
-        </section>
-      </div>
-    </section>
-  </main>
+          <div id="progress-panel" class="stack-list"></div>
+        </div>
+      </section>
+
+      <section class="student-detail-grid" id="roadmap-section">
+        <div class="student-panel glass">
+          <div class="student-panel-head">
+            <div>
+              <div class="panel-title">Preparation Roadmap</div>
+              <h3>Weekly plan</h3>
+            </div>
+          </div>
+          <div id="weekly-plan" class="stack-list"></div>
+        </div>
+        <div class="student-panel glass" id="matches-section">
+          <div class="student-panel-head">
+            <div>
+              <div class="panel-title">Best-Fit Roles</div>
+              <h3>MatcherAgent recommendations</h3>
+            </div>
+          </div>
+          <div id="matches" class="stack-list"></div>
+        </div>
+      </section>
+
+      <section class="student-detail-grid" id="tasks-section">
+        <div class="student-panel glass">
+          <div class="student-panel-head">
+            <div>
+              <div class="panel-title">Task Tracker</div>
+              <h3>Daily execution</h3>
+            </div>
+          </div>
+          <div id="task-list" class="stack-list"></div>
+        </div>
+        <div class="student-panel glass" id="mentor-section">
+          <div class="student-panel-head">
+            <div>
+              <div class="panel-title">AI Mentor Chat</div>
+              <h3>Ask for targeted prep help</h3>
+            </div>
+          </div>
+          <div class="interview-box">
+            <div id="chat-history" class="feedback-box student-chat-history"></div>
+            <form id="chat-form" class="student-chat-form">
+              <textarea id="chat-message" rows="4" placeholder="Ask the AI mentor anything about your preparation..."></textarea>
+              <button class="btn btn-primary" type="submit">Send To Mentor</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section class="student-panel glass" id="interview-section">
+        <div class="student-panel-head">
+          <div>
+            <div class="panel-title">Mock Interview</div>
+            <h3>Live question loop with feedback</h3>
+          </div>
+        </div>
+        <form id="start-interview-form" class="inline-form student-interview-start">
+          <select id="interview-tone" name="tone">
+            <option value="supportive">Supportive</option>
+            <option value="challenging">Challenging</option>
+          </select>
+          <select id="interview-mode" name="mode">
+            <option value="text">Text</option>
+            <option value="voice">Voice</option>
+          </select>
+          <button class="btn btn-secondary" type="submit">Start Interview</button>
+        </form>
+        <div class="interview-box">
+          <div id="interview-question" class="question-box">Start a session to generate the first question.</div>
+          <div id="voice-status" class="feedback-box" hidden>Voice mode is ready.</div>
+          <div id="voice-transcript" class="feedback-box" hidden>No transcript yet.</div>
+          <div class="cta-row" id="voice-controls" hidden>
+            <button class="btn btn-secondary" id="voice-toggle" type="button">Start Listening</button>
+            <button class="btn btn-secondary" id="voice-submit" type="button">Submit Voice Answer</button>
+            <button class="btn btn-secondary" id="voice-replay" type="button">Replay Question</button>
+          </div>
+          <form id="interview-reply-form">
+            <textarea id="interview-answer" rows="5" placeholder="Answer the interview question here..."></textarea>
+            <button class="btn btn-primary" type="submit">Send Answer</button>
+          </form>
+          <div id="interview-feedback" class="feedback-box"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="resume-modal" class="student-modal" hidden>
+    <div class="student-modal-backdrop" data-close-resume-modal></div>
+    <div class="student-modal-card glass" role="dialog" aria-modal="true" aria-labelledby="resume-modal-title">
+      <button class="student-modal-close" id="close-resume-modal" type="button">x</button>
+      <div class="panel-title">Resume Hub</div>
+      <h3 id="resume-modal-title">Upload a resume for fresh analysis</h3>
+      <p>PlaceAgent will re-run resume parsing and refresh the readiness story, skill gaps, and match suggestions.</p>
+      <form id="resume-form" class="student-upload-form">
+        <input type="file" id="resume-file" name="file" />
+        <button class="btn btn-primary" type="submit">Upload And Analyze</button>
+      </form>
+    </div>
+  </div>
 
   <div id="mic-modal" class="mic-modal" hidden>
     <div class="mic-modal-backdrop" data-mic-close></div>

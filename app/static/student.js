@@ -236,6 +236,111 @@ function renderAiBanner(ai) {
     : `Student intelligence is in fallback mode. Add <code>GEMINI_API_KEY</code> to enable live AI coaching.`;
 }
 
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+function getReadinessHeadline(score) {
+  if (score >= 80) return "You're in strong shortlist territory";
+  if (score >= 65) return "You're building solid placement momentum";
+  if (score >= 50) return "You're close, but a few gaps still matter";
+  return "You need a focused prep push this week";
+}
+
+function getReadinessSummary(student) {
+  const priorities = student.improvement_priorities?.slice(0, 2) || [];
+  const gaps = student.skill_gaps?.slice(0, 2) || [];
+  const focus = priorities.length ? priorities.join(" and ") : gaps.join(" and ");
+  return focus
+    ? `Your strongest next move is to improve ${focus}. Resume quality, mock interviews, and task completion are all feeding this score.`
+    : "Your resume, interview loop, and planning signals are all being tracked from one workspace.";
+}
+
+function renderFeatureCards(student) {
+  const cards = [
+    ["resume-section", "Resume Hub", "ScoutAgent parsing, strengths, and skill gaps in one place.", student.recent_resume_name ? "Resume parsed" : "Upload resume", "amber", "RS"],
+    ["roadmap-section", "Preparation Roadmap", "A focused weekly plan built around the gaps blocking your best-fit roles.", `${student.weekly_plan.length || 0} roadmap blocks`, "blue", "RM"],
+    ["matches-section", "Role Matches", "See the companies and roles where your current profile has the best chance.", `${student.matches.length || 0} role matches`, "cyan", "MT"],
+    ["mentor-section", "AI Mentor", "Ask for interview prep, role strategy, project framing, or company-specific guidance.", "Live mentor chat", "violet", "AI"],
+    ["tasks-section", "Task Tracker", "Track execution daily so readiness improves through visible progress.", `${(student.tasks || []).filter((task) => task.status === "done").length} tasks done`, "rose", "TK"],
+    ["interview-section", "Mock Interview", "Start text or voice practice and get live feedback after every answer.", `${student.interview_score}% interview score`, "amber", "IV"],
+  ];
+  qs("#student-feature-cards").innerHTML = cards.map(([target, title, copy, tag, accent, icon]) => `
+    <a class="student-feature-card" href="#${target}" data-accent="${accent}">
+      <div class="student-feature-icon">${icon}</div>
+      <div>
+        <h3>${title}</h3>
+        <p>${copy}</p>
+      </div>
+      <div class="student-feature-footer">
+        <span class="student-feature-tag">${tag}</span>
+        <span class="student-feature-arrow">&gt;</span>
+      </div>
+    </a>
+  `).join("");
+}
+
+function renderQuickTasks(student) {
+  const tasks = (student.tasks || []).slice(0, 4);
+  qs("#student-quick-tasks").innerHTML = tasks.map((task) => `
+    <div class="student-task-item ${task.status === "done" ? "done" : ""}">
+      <span class="student-task-bullet"></span>
+      <div class="student-task-copy">
+        <strong>${task.title}</strong>
+        <p>${task.description}</p>
+      </div>
+      <span class="student-task-meta">${task.status === "done" ? "Done" : task.due_date}</span>
+    </div>
+  `).join("") || `<div class="list-item">No tasks yet. The planner will surface your next actions here.</div>`;
+}
+
+function renderAlerts(student) {
+  const alerts = [
+    ...(student.skill_gaps || []).slice(0, 2).map((gap) => ({
+      level: "high",
+      title: `${gap} needs attention`,
+      detail: "This gap is likely reducing shortlist confidence for your best-fit roles.",
+    })),
+    ...(student.improvement_priorities || []).slice(0, 1).map((item) => ({
+      level: "medium",
+      title: "Priority focus",
+      detail: item,
+    })),
+    ...(student.matches || []).slice(0, 1).map((match) => ({
+      level: "low",
+      title: `${match.company} looks promising`,
+      detail: `${match.role} is currently a ${match.score}% fit.`,
+    })),
+  ].slice(0, 4);
+
+  qs("#student-alerts").innerHTML = alerts.map((alert) => `
+    <div class="student-alert-item" data-level="${alert.level}">
+      <span class="student-alert-marker"></span>
+      <div>
+        <strong>${alert.title}</strong>
+        <p>${alert.detail}</p>
+      </div>
+    </div>
+  `).join("") || `<div class="list-item">No urgent signals right now. Keep the momentum going.</div>`;
+}
+
+function openResumeModal() {
+  const modal = qs("#resume-modal");
+  if (modal) {
+    modal.hidden = false;
+  }
+}
+
+function closeResumeModal() {
+  const modal = qs("#resume-modal");
+  if (modal) {
+    modal.hidden = true;
+  }
+}
+
 function renderStudentList() {
   qs("#student-list").innerHTML = state.students.map((student) => `
     <button class="student-chip ${student.id === state.selectedStudentId ? "active" : ""}" data-student-id="${student.id}">
@@ -270,7 +375,7 @@ function renderMetrics(student) {
     ["Confidence", `${student.confidence_score}%`],
     ["Alerts", student.alerts_count],
   ].map(([label, value]) => `
-    <div class="list-item">
+    <div class="student-metric-card glass">
       <div class="panel-title">${label}</div>
       <h3>${value}</h3>
     </div>
@@ -302,9 +407,21 @@ function renderSelectedStudent() {
   if (!student) return;
 
   state.selectedStudentId = student.id;
-  qs("#student-name").textContent = student.name;
+  qs("#student-greeting").textContent = `${getGreeting()}, ${student.name}.`;
   qs("#student-summary").textContent = student.summary;
-  qs("#student-readiness").textContent = student.readiness_score;
+  qs("#student-readiness").textContent = `${student.readiness_score}%`;
+  qs("#student-readiness-ring").style.setProperty("--readiness", student.readiness_score);
+  qs("#student-readiness-title").textContent = getReadinessHeadline(student.readiness_score);
+  qs("#student-readiness-summary").textContent = getReadinessSummary(student);
+  qs("#student-stat-chips").innerHTML = [
+    `${student.skills.length} skills detected`,
+    `${student.skill_gaps.length} gaps flagged`,
+    `${student.tasks.filter((task) => task.status === "done").length}/${student.tasks.length || 0} tasks done`,
+    `${student.matches.length} role matches`,
+  ].map((item) => `<span class="student-stat-chip">${item}</span>`).join("");
+  qs("#sidebar-student-initial").textContent = student.name.charAt(0).toUpperCase();
+  qs("#sidebar-student-name").textContent = student.name;
+  qs("#sidebar-student-role").textContent = `${student.degree} | ${student.branch} | ${student.graduation_year}`;
   qs("#resume-output").innerHTML = `
     <div class="list-item">
       <strong>${student.recent_resume_name || "No resume yet"}</strong>
@@ -330,9 +447,12 @@ function renderSelectedStudent() {
     </div>
   `;
   renderMetrics(student);
+  renderFeatureCards(student);
   renderPlan(student);
   renderMatches(student);
   renderTasks(student);
+  renderQuickTasks(student);
+  renderAlerts(student);
   loadProgress(student.id);
   loadChatHistory(student.id);
   updateInterviewModeUi();
@@ -477,6 +597,8 @@ async function handleResumeUpload(event) {
     state.students = state.students.map((student) => student.id === result.student.id ? result.student : student);
     renderStudentList();
     renderSelectedStudent();
+    closeResumeModal();
+    event.currentTarget.reset();
     setStatus(`Resume analyzed via ${result.source}.`);
   } catch (error) {
     setStatus(error.message, true);
@@ -619,6 +741,14 @@ function bindForms() {
   qs("#cancel-add-student").addEventListener("click", () => {
     qs("#student-create-inline").hidden = true;
     qs("#student-create-inline-form").reset();
+  });
+  qs("#open-resume-upload").addEventListener("click", openResumeModal);
+  qs("#close-resume-modal").addEventListener("click", closeResumeModal);
+  document.querySelectorAll("[data-open-upload]").forEach((element) => {
+    element.addEventListener("click", openResumeModal);
+  });
+  document.querySelectorAll("[data-close-resume-modal]").forEach((element) => {
+    element.addEventListener("click", closeResumeModal);
   });
 }
 

@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
-<body>
+<body class="theme-landing">
   <div class="noise"></div>
   <header class="topbar">
     <a class="brand brand-link" href="/">
@@ -30,6 +30,7 @@
     <section class="hero hero-landing" id="story">
       <div class="hero-copy">
         <div class="eyebrow">Gemini-Powered Placement Intelligence</div>
+        <div class="hero-kicker">Student prep, campus operations, and recruiter workflow in one cinematic control layer.</div>
         <h1>AI placement infrastructure for students, TPC teams, and hiring workflows.</h1>
         <p>
           PlaceAgent combines resume analysis, interview coaching, readiness tracking, and risk monitoring in one agent-driven system.
@@ -41,10 +42,18 @@
           <a class="btn btn-secondary" href="/hr">Open HR Dashboard</a>
         </div>
         <div id="ai-banner" class="ai-banner"></div>
+        <div class="hero-note-grid">
+          <div class="hero-note glass">
+            <div class="panel-title">Why It Feels Different</div>
+            <p>Every role gets a focused interface instead of a generic dashboard clone.</p>
+          </div>
+          <div class="hero-note glass">
+            <div class="panel-title">Built For Pressure</div>
+            <p>Hackathon-fast on the backend, but designed like a real product people would want to use daily.</p>
+          </div>
+        </div>
       </div>
       <div class="hero-visual">
-        <div class="orb orb-a"></div>
-        <div class="orb orb-b"></div>
         <div class="glass hero-panel">
           <div class="panel-header">
             <span class="pulse"></span>
@@ -93,6 +102,32 @@
         <article class="glass agent-card accent-amber"><h3>Planner</h3><p>Turns insight into a concrete multi-week prep plan with role-aware priorities.</p></article>
         <article class="glass agent-card accent-red"><h3>Interviewer</h3><p>Generates mock interview questions, critiques answers, and evolves a coaching report in real time.</p></article>
         <article class="glass agent-card accent-ink"><h3>Watchdog</h3><p>Monitors readiness risk and alerts the TPC when intervention is needed before placement windows close.</p></article>
+      </div>
+    </section>
+
+    <section class="section story-strip">
+      <div class="glass story-panel">
+        <div class="section-head">
+          <span class="eyebrow">Operating Model</span>
+          <h2>From resume upload to shortlist decision without losing narrative continuity</h2>
+        </div>
+        <div class="story-grid">
+          <div class="story-step">
+            <span>01</span>
+            <strong>Student onboarding</strong>
+            <p>Resume parsing, skill extraction, and early readiness signals are captured immediately.</p>
+          </div>
+          <div class="story-step">
+            <span>02</span>
+            <strong>TPC monitoring</strong>
+            <p>Campus teams can intervene before risk becomes placement loss.</p>
+          </div>
+          <div class="story-step">
+            <span>03</span>
+            <strong>HR decisioning</strong>
+            <p>Recruiters receive ranked shortlists with explainable match rationale and interview actions.</p>
+          </div>
+        </div>
       </div>
     </section>
   </main>
