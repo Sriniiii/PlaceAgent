@@ -1,0 +1,441 @@
+.student-shell {
+  min-height: 100vh;
+}
+
+.student-page {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+}
+
+.student-sidebar {
+  margin: 20px 0 20px 20px;
+  padding: 24px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  position: sticky;
+  top: 20px;
+  height: calc(100vh - 40px);
+  background: linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03)), rgba(6, 14, 26, 0.88);
+}
+
+.student-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--text);
+  text-decoration: none;
+  padding-bottom: 22px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.student-brand-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--blue), var(--cyan));
+  box-shadow: 0 14px 30px rgba(95, 208, 255, 0.18);
+}
+
+.student-brand-name {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.student-brand-sub,
+.student-nav-label,
+.student-user-role {
+  color: var(--muted);
+}
+
+.student-brand-sub,
+.student-nav-label {
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.student-nav {
+  display: grid;
+  gap: 8px;
+}
+
+.student-nav-item {
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--muted);
+  text-decoration: none;
+  transition: background 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.student-nav-item:hover,
+.student-nav-item.active {
+  color: var(--text);
+  background: rgba(95, 208, 255, 0.12);
+  border: 1px solid rgba(95, 208, 255, 0.18);
+  transform: translateX(2px);
+}
+
+.student-sidebar-section {
+  min-height: 0;
+}
+
+.student-roster,
+.student-quick-list,
+.student-alert-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.student-roster {
+  margin-top: 16px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.student-sidebar-footer {
+  margin-top: auto;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.student-user-pill {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.student-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  color: #021019;
+  background: linear-gradient(135deg, var(--cyan), var(--blue));
+}
+
+.student-main,
+.student-hero,
+.student-section {
+  display: grid;
+  gap: 20px;
+}
+
+.student-main {
+  padding: 26px 26px 42px;
+}
+
+.student-page-header,
+.student-readiness-card,
+.student-panel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.student-page-header h1 {
+  max-width: 16ch;
+  font-size: 4rem;
+  line-height: 0.95;
+}
+
+.student-header-actions {
+  margin-top: 0;
+}
+
+.student-readiness-card,
+.student-panel {
+  padding: 24px;
+}
+
+.student-readiness-ring {
+  --readiness: 0;
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: radial-gradient(circle at center, rgba(7, 18, 31, 0.94) 0 56%, transparent 57%), conic-gradient(from 180deg, var(--cyan) 0 calc(var(--readiness) * 1%), rgba(255,255,255,0.08) 0 100%);
+  display: grid;
+  place-items: center;
+}
+
+.student-readiness-core {
+  text-align: center;
+}
+
+.student-readiness-core span {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.student-readiness-core small,
+.section-label {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.76rem;
+}
+
+.student-stat-row,
+.student-feature-footer {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.student-stat-chip,
+.student-feature-tag {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  font-size: 0.83rem;
+}
+
+.student-metric-grid,
+.student-feature-grid,
+.student-bottom-grid,
+.student-detail-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.student-metric-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.student-feature-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.student-bottom-grid,
+.student-detail-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.student-metric-card,
+.student-feature-card,
+.student-task-item,
+.student-alert-item {
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.student-metric-card {
+  padding: 18px;
+}
+
+.student-metric-card h3,
+.student-panel-head h3 {
+  margin: 8px 0 0;
+}
+
+.student-feature-card {
+  display: grid;
+  gap: 12px;
+  padding: 22px;
+  text-decoration: none;
+  color: var(--text);
+  transition: transform 180ms ease, border-color 180ms ease;
+}
+
+.student-feature-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(95, 208, 255, 0.24);
+}
+
+.student-feature-card[data-accent="cyan"] .student-feature-icon {
+  background: rgba(78, 242, 205, 0.14);
+  color: var(--cyan);
+}
+
+.student-feature-card[data-accent="violet"] .student-feature-icon {
+  background: rgba(167, 139, 250, 0.16);
+  color: var(--violet);
+}
+
+.student-feature-card[data-accent="amber"] .student-feature-icon {
+  background: rgba(255, 195, 109, 0.16);
+  color: var(--amber);
+}
+
+.student-feature-card[data-accent="rose"] .student-feature-icon {
+  background: rgba(255, 139, 167, 0.16);
+  color: var(--rose);
+}
+
+.student-feature-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: rgba(95, 208, 255, 0.14);
+  color: var(--blue);
+  font-weight: 700;
+}
+
+.student-task-item,
+.student-alert-item {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.student-task-copy {
+  flex: 1;
+}
+
+.student-task-meta {
+  color: var(--muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.student-task-bullet,
+.student-alert-marker {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.student-task-bullet {
+  background: var(--cyan);
+}
+
+.student-alert-item[data-level="high"] .student-alert-marker {
+  background: var(--rose);
+}
+
+.student-alert-item[data-level="medium"] .student-alert-marker {
+  background: var(--amber);
+}
+
+.student-alert-item[data-level="low"] .student-alert-marker {
+  background: var(--blue);
+}
+
+.student-chat-history {
+  min-height: 180px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.student-empty-wrap {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  position: relative;
+  z-index: 1;
+}
+
+.student-empty-card {
+  width: min(980px, 100%);
+  padding: 34px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  gap: 28px;
+}
+
+.student-empty-copy h1 {
+  margin: 12px 0;
+  max-width: 11ch;
+}
+
+.student-empty-form,
+.student-upload-form,
+.student-chat-form {
+  display: grid;
+  gap: 12px;
+}
+
+.student-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+}
+
+.student-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(3, 8, 15, 0.74);
+  backdrop-filter: blur(8px);
+}
+
+.student-modal-card {
+  position: relative;
+  width: min(92vw, 520px);
+  margin: min(10vh, 84px) auto 0;
+  padding: 28px;
+  z-index: 1;
+}
+
+.student-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  color: var(--text);
+  cursor: pointer;
+}
+
+@media (max-width: 1180px) {
+  .student-page {
+    grid-template-columns: 1fr;
+  }
+
+  .student-sidebar {
+    position: relative;
+    top: 0;
+    height: auto;
+    margin: 18px 18px 0;
+  }
+}
+
+@media (max-width: 920px) {
+  .student-bottom-grid,
+  .student-detail-grid,
+  .student-empty-card {
+    grid-template-columns: 1fr;
+  }
+
+  .student-page-header,
+  .student-readiness-card {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 640px) {
+  .student-page-content {
+    padding: 22px 18px 36px;
+  }
+
+  .student-page-header h1,
+  .student-empty-copy h1 {
+    font-size: 2.35rem;
+  }
+
+  .student-sidebar {
+    margin-inline: 12px;
+  }
+}
