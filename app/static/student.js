@@ -407,6 +407,10 @@ function renderSelectedStudent() {
   if (!student) return;
 
   state.selectedStudentId = student.id;
+  const videoLink = qs("#video-interview-link");
+  if (videoLink) {
+    videoLink.href = `/student/video-interview/${student.id}`;
+  }
   qs("#student-greeting").textContent = `${getGreeting()}, ${student.name}.`;
   qs("#student-summary").textContent = student.summary;
   qs("#student-readiness").textContent = `${student.readiness_score}%`;

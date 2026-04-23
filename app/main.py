@@ -41,6 +41,11 @@ async def student_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "student.html", {})
 
 
+@app.get("/student/video-interview/{student_id}", response_class=HTMLResponse)
+async def video_interview_page(student_id: str, request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "video_interview.html", {"student_id": student_id})
+
+
 @app.get("/tpc", response_class=HTMLResponse)
 async def tpc_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "tpc.html", {})

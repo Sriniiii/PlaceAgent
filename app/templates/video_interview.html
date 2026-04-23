@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PlaceAgent | Video Interview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css" />
+  <script>
+    window.STUDENT_ID = "{{ student_id }}";
+  </script>
+</head>
+<body class="video-body">
+  <div class="noise"></div>
+  <main class="video-stage">
+    <header class="video-header">
+      <a class="shell-brand" href="/student">
+        <span class="shell-brand-mark"></span>
+        <div>
+          <strong>PlaceAgent</strong>
+          <span>AI Video Interview</span>
+        </div>
+      </a>
+      <div class="video-live-pill">
+        <span></span>
+        <strong id="connection-state">Ready to connect</strong>
+      </div>
+    </header>
+
+    <section class="video-hero glass">
+      <div>
+        <span class="eyebrow">Live Interview Room</span>
+        <h1>Practice like a real video call.</h1>
+        <p>The AI interviewer listens to your spoken answer, replies with voice, and scores the interview against your live PlaceAgent profile.</p>
+      </div>
+      <div class="video-controls">
+        <select id="video-tone">
+          <option value="supportive">Supportive</option>
+          <option value="challenging">Challenging</option>
+        </select>
+        <button class="btn btn-primary" id="start-call" type="button">Start Video Interview</button>
+        <button class="btn btn-secondary danger-btn" id="end-call" type="button" disabled>End Interview</button>
+      </div>
+    </section>
+
+    <section class="video-call-grid">
+      <div class="video-panel glass ai-panel">
+        <div class="panel-title">AI Interviewer</div>
+        <canvas id="avatar-canvas" width="640" height="460"></canvas>
+        <div class="video-name-tag">PlaceAgent Interviewer</div>
+      </div>
+      <div class="video-panel glass">
+        <div class="panel-title">Your Camera</div>
+        <video id="student-video" autoplay muted playsinline></video>
+        <div class="video-name-tag">You</div>
+      </div>
+    </section>
+
+    <section class="video-bottom-grid">
+      <div class="glass section-card">
+        <div class="row-head">
+          <div>
+            <div class="panel-title">Live Transcript</div>
+            <h3>Conversation</h3>
+          </div>
+          <span class="badge" id="recording-badge">Idle</span>
+        </div>
+        <div id="video-transcript" class="video-transcript">
+          <div class="list-item">Click Start Video Interview and allow camera/microphone access.</div>
+        </div>
+      </div>
+      <div class="glass section-card">
+        <div class="panel-title">Session Feedback</div>
+        <div id="video-feedback" class="stack-list">
+          <div class="list-item">The final scorecard appears here after you end the interview.</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/video_interview.js"></script>
+</body>
+</html>
