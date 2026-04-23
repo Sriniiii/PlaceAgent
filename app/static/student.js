@@ -15,8 +15,23 @@ function qs(selector) {
   return document.querySelector(selector);
 }
 
+function qsa(selector) {
+  return Array.from(document.querySelectorAll(selector));
+}
+
+function setText(selector, value) {
+  const el = qs(selector);
+  if (el) el.textContent = value;
+}
+
+function setHtml(selector, value) {
+  const el = qs(selector);
+  if (el) el.innerHTML = value;
+}
+
 function setStatus(message, isError = false) {
   const el = qs("#student-status");
+  if (!el) return;
   el.hidden = !message;
   el.className = `ai-banner ${isError ? "offline" : ""}`.trim();
   el.textContent = message || "";
@@ -50,6 +65,7 @@ function getSpeechRecognition() {
 
 function setVoiceStatus(message, isError = false) {
   const el = qs("#voice-status");
+  if (!el) return;
   el.hidden = false;
   el.className = `feedback-box ${isError ? "voice-error" : ""}`.trim();
   el.textContent = message;
@@ -57,6 +73,7 @@ function setVoiceStatus(message, isError = false) {
 
 function renderVoiceTranscript(text) {
   const el = qs("#voice-transcript");
+  if (!el) return;
   el.hidden = false;
   el.textContent = text || "No transcript yet.";
 }
@@ -111,12 +128,18 @@ function speakText(text) {
 
 function updateInterviewModeUi() {
   const isVoice = state.interviewMode === "voice";
-  qs("#voice-controls").hidden = !isVoice;
-  qs("#voice-status").hidden = !isVoice;
-  qs("#voice-transcript").hidden = !isVoice;
-  qs("#interview-answer").placeholder = isVoice
-    ? "Voice transcript will appear here. You can still edit before sending."
-    : "Answer the interview question here...";
+  const voiceControls = qs("#voice-controls");
+  const voiceStatus = qs("#voice-status");
+  const voiceTranscript = qs("#voice-transcript");
+  const answer = qs("#interview-answer");
+  if (voiceControls) voiceControls.hidden = !isVoice;
+  if (voiceStatus) voiceStatus.hidden = !isVoice;
+  if (voiceTranscript) voiceTranscript.hidden = !isVoice;
+  if (answer) {
+    answer.placeholder = isVoice
+      ? "Voice transcript will appear here. You can still edit before sending."
+      : "Answer the interview question here...";
+  }
   if (!isVoice) {
     stopVoiceRecognition();
   }
@@ -135,17 +158,17 @@ function initialiseVoiceRecognition() {
   recognition.continuous = true;
   recognition.onstart = () => {
     state.voiceListening = true;
-    qs("#voice-toggle").textContent = "Stop Listening";
+    setText("#voice-toggle", "Stop Listening");
     setVoiceStatus("Listening to your answer...");
   };
   recognition.onend = () => {
     state.voiceListening = false;
-    qs("#voice-toggle").textContent = "Start Listening";
+    setText("#voice-toggle", "Start Listening");
     setVoiceStatus("Microphone stopped. Review the transcript or submit it.");
   };
   recognition.onerror = (event) => {
     state.voiceListening = false;
-    qs("#voice-toggle").textContent = "Start Listening";
+    setText("#voice-toggle", "Start Listening");
     if (event.error === "not-allowed" || event.error === "service-not-allowed") {
       showMicModal("Microphone access is blocked right now. Click Enable Microphone, then allow access in the browser prompt.");
       setVoiceStatus("Microphone access is blocked. Open the popup and allow access to continue.", true);
@@ -171,7 +194,8 @@ function initialiseVoiceRecognition() {
     }
     state.finalTranscript = finalText.trim();
     const combined = `${state.finalTranscript} ${interimText}`.trim();
-    qs("#interview-answer").value = combined;
+    const answer = qs("#interview-answer");
+    if (answer) answer.value = combined;
     renderVoiceTranscript(combined);
   };
   state.recognition = recognition;
@@ -220,7 +244,7 @@ async function startVoiceListening() {
     return;
   }
   try {
-    state.finalTranscript = qs("#interview-answer").value.trim();
+    state.finalTranscript = qs("#interview-answer")?.value.trim() || "";
     state.recognition.start();
   } catch {
     showMicModal("We could not start voice capture yet. Click Enable Microphone, allow the browser prompt, and try again.");
@@ -230,6 +254,7 @@ async function startVoiceListening() {
 
 function renderAiBanner(ai) {
   const el = qs("#ai-banner");
+  if (!el) return;
   el.className = `ai-banner ${ai.enabled ? "" : "offline"}`.trim();
   el.innerHTML = ai.enabled
     ? `Student intelligence is running in live AI mode with <strong>${ai.model}</strong>.`
@@ -268,7 +293,7 @@ function renderFeatureCards(student) {
     ["tasks-section", "Task Tracker", "Track execution daily so readiness improves through visible progress.", `${(student.tasks || []).filter((task) => task.status === "done").length} tasks done`, "rose", "TK"],
     ["interview-section", "Mock Interview", "Start text or voice practice and get live feedback after every answer.", `${student.interview_score}% interview score`, "amber", "IV"],
   ];
-  qs("#student-feature-cards").innerHTML = cards.map(([target, title, copy, tag, accent, icon]) => `
+  setHtml("#student-feature-cards", cards.map(([target, title, copy, tag, accent, icon]) => `
     <a class="student-feature-card" href="#${target}" data-accent="${accent}">
       <div class="student-feature-icon">${icon}</div>
       <div>
@@ -277,15 +302,15 @@ function renderFeatureCards(student) {
       </div>
       <div class="student-feature-footer">
         <span class="student-feature-tag">${tag}</span>
-        <span class="student-feature-arrow">&gt;</span>
+      <span class="student-feature-arrow">&gt;</span>
       </div>
     </a>
-  `).join("");
+  `).join(""));
 }
 
 function renderQuickTasks(student) {
   const tasks = (student.tasks || []).slice(0, 4);
-  qs("#student-quick-tasks").innerHTML = tasks.map((task) => `
+  setHtml("#student-quick-tasks", tasks.map((task) => `
     <div class="student-task-item ${task.status === "done" ? "done" : ""}">
       <span class="student-task-bullet"></span>
       <div class="student-task-copy">
@@ -294,7 +319,7 @@ function renderQuickTasks(student) {
       </div>
       <span class="student-task-meta">${task.status === "done" ? "Done" : task.due_date}</span>
     </div>
-  `).join("") || `<div class="list-item">No tasks yet. The planner will surface your next actions here.</div>`;
+  `).join("") || `<div class="list-item">No tasks yet. The planner will surface your next actions here.</div>`);
 }
 
 function renderAlerts(student) {
@@ -316,7 +341,7 @@ function renderAlerts(student) {
     })),
   ].slice(0, 4);
 
-  qs("#student-alerts").innerHTML = alerts.map((alert) => `
+  setHtml("#student-alerts", alerts.map((alert) => `
     <div class="student-alert-item" data-level="${alert.level}">
       <span class="student-alert-marker"></span>
       <div>
@@ -324,7 +349,7 @@ function renderAlerts(student) {
         <p>${alert.detail}</p>
       </div>
     </div>
-  `).join("") || `<div class="list-item">No urgent signals right now. Keep the momentum going.</div>`;
+  `).join("") || `<div class="list-item">No urgent signals right now. Keep the momentum going.</div>`);
 }
 
 function openResumeModal() {
@@ -342,12 +367,12 @@ function closeResumeModal() {
 }
 
 function renderStudentList() {
-  qs("#student-list").innerHTML = state.students.map((student) => `
+  setHtml("#student-list", state.students.map((student) => `
     <button class="student-chip ${student.id === state.selectedStudentId ? "active" : ""}" data-student-id="${student.id}">
       <div><strong>${student.name}</strong></div>
       <div class="muted">${student.branch} | ${student.readiness_score}% ready</div>
     </button>
-  `).join("");
+  `).join(""));
 
   document.querySelectorAll("[data-student-id]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -361,15 +386,18 @@ function renderStudentList() {
 
 function renderStudentMode() {
   const hasStudents = state.students.length > 0;
-  qs("#student-empty-state").hidden = hasStudents;
-  qs("#student-dashboard").hidden = !hasStudents;
+  const empty = qs("#student-empty-state");
+  const dashboard = qs("#student-dashboard");
+  if (empty) empty.hidden = hasStudents;
+  if (dashboard) dashboard.hidden = !hasStudents;
   if (!hasStudents) {
-    qs("#student-create-inline").hidden = true;
+    const inline = qs("#student-create-inline");
+    if (inline) inline.hidden = true;
   }
 }
 
 function renderMetrics(student) {
-  qs("#student-metrics").innerHTML = [
+  setHtml("#student-metrics", [
     ["Resume", `${student.resume_score}%`],
     ["Interview", `${student.interview_score}%`],
     ["Confidence", `${student.confidence_score}%`],
@@ -379,27 +407,27 @@ function renderMetrics(student) {
       <div class="panel-title">${label}</div>
       <h3>${value}</h3>
     </div>
-  `).join("");
+  `).join(""));
 }
 
 function renderPlan(student) {
-  qs("#weekly-plan").innerHTML = student.weekly_plan.map((week) => `
+  setHtml("#weekly-plan", student.weekly_plan.map((week) => `
     <div class="plan-card">
       <strong>Week ${week.week}: ${week.focus}</strong>
       <p>${week.tasks.join(" | ")}</p>
     </div>
-  `).join("");
+  `).join(""));
 }
 
 function renderMatches(student) {
-  qs("#matches").innerHTML = student.matches.map((match) => `
+  setHtml("#matches", student.matches.map((match) => `
     <div class="match-card">
       <strong>${match.company}</strong>
       <div>${match.role} | ${match.score}% fit</div>
       <p>${match.reason}</p>
       <p><strong>Missing:</strong> ${(match.missing_skills || []).join(", ") || "No major blockers identified"}</p>
     </div>
-  `).join("");
+  `).join(""));
 }
 
 function renderSelectedStudent() {
@@ -411,22 +439,29 @@ function renderSelectedStudent() {
   if (videoLink) {
     videoLink.href = `/student/video-interview/${student.id}`;
   }
-  qs("#student-greeting").textContent = `${getGreeting()}, ${student.name}.`;
-  qs("#student-summary").textContent = student.summary;
-  qs("#student-readiness").textContent = `${student.readiness_score}%`;
-  qs("#student-readiness-ring").style.setProperty("--readiness", student.readiness_score);
-  qs("#student-readiness-title").textContent = getReadinessHeadline(student.readiness_score);
-  qs("#student-readiness-summary").textContent = getReadinessSummary(student);
-  qs("#student-stat-chips").innerHTML = [
+  setText("#student-greeting", `${getGreeting()}, ${student.name}.`);
+  setText("#student-name", student.name);
+  setText("#student-summary", student.summary);
+  setText("#student-readiness", `${student.readiness_score}%`);
+  const readinessRing = qs("#student-readiness-ring");
+  if (readinessRing) {
+    readinessRing.style.setProperty("--readiness", student.readiness_score);
+    readinessRing.style.setProperty("--pct", student.readiness_score);
+  }
+  setText("#student-readiness-title", getReadinessHeadline(student.readiness_score));
+  setText("#student-readiness-summary", getReadinessSummary(student));
+  setHtml("#student-stat-chips", [
     `${student.skills.length} skills detected`,
     `${student.skill_gaps.length} gaps flagged`,
     `${student.tasks.filter((task) => task.status === "done").length}/${student.tasks.length || 0} tasks done`,
     `${student.matches.length} role matches`,
-  ].map((item) => `<span class="student-stat-chip">${item}</span>`).join("");
-  qs("#sidebar-student-initial").textContent = student.name.charAt(0).toUpperCase();
-  qs("#sidebar-student-name").textContent = student.name;
-  qs("#sidebar-student-role").textContent = `${student.degree} | ${student.branch} | ${student.graduation_year}`;
-  qs("#resume-output").innerHTML = `
+  ].map((item) => `<span class="student-stat-chip">${item}</span>`).join(""));
+  setText("#sidebar-student-initial", student.name.charAt(0).toUpperCase());
+  setText("#sidebar-student-avatar", student.name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase());
+  setText("#sidebar-student-name", student.name);
+  setText("#sidebar-student-role", `${student.degree} | ${student.branch} | ${student.graduation_year}`);
+  setText("#sidebar-student-branch", `${student.degree} | ${student.branch} | ${student.graduation_year}`);
+  setHtml("#resume-output", `
     <div class="list-item">
       <strong>${student.recent_resume_name || "No resume yet"}</strong>
       <p>${student.parsed_resume_excerpt || "Upload a resume to trigger Scout, Matcher, and Planner."}</p>
@@ -439,8 +474,8 @@ function renderSelectedStudent() {
       <strong>Skill Gaps</strong>
       <p>${student.skill_gaps.join(" | ")}</p>
     </div>
-  `;
-  qs("#student-insights").innerHTML = `
+  `);
+  setHtml("#student-insights", `
     <div class="list-item">
       <strong>Strengths</strong>
       <p>${(student.strengths || []).join(" | ") || "Upload a resume to extract strengths."}</p>
@@ -449,7 +484,7 @@ function renderSelectedStudent() {
       <strong>Improvement Priorities</strong>
       <p>${(student.improvement_priorities || []).join(" | ") || "No priorities available yet."}</p>
     </div>
-  `;
+  `);
   renderMetrics(student);
   renderFeatureCards(student);
   renderPlan(student);
@@ -457,13 +492,13 @@ function renderSelectedStudent() {
   renderTasks(student);
   renderQuickTasks(student);
   renderAlerts(student);
-  loadProgress(student.id);
-  loadChatHistory(student.id);
+  loadProgress(student.id).catch((error) => setStatus(error.message, true));
+  loadChatHistory(student.id).catch((error) => setStatus(error.message, true));
   updateInterviewModeUi();
 }
 
 function renderTasks(student) {
-  qs("#task-list").innerHTML = (student.tasks || []).map((task) => `
+  setHtml("#task-list", (student.tasks || []).map((task) => `
     <div class="list-item">
       <strong>${task.title}</strong>
       <p>${task.description}</p>
@@ -473,7 +508,7 @@ function renderTasks(student) {
         <button class="btn btn-secondary btn-small task-status" data-task-id="${task.id}" data-status="missed">Mark Missed</button>
       </div>
     </div>
-  `).join("") || `<div class="list-item">No tasks yet.</div>`;
+  `).join("") || `<div class="list-item">No tasks yet.</div>`);
   document.querySelectorAll(".task-status").forEach((button) => {
     button.addEventListener("click", async () => {
       try {
@@ -506,7 +541,7 @@ async function loadProgress(studentId) {
   const response = await apiFetch(`/api/progress/${studentId}`);
   const progress = await response.json();
   const scores = progress.interview_scores || [];
-  qs("#progress-panel").innerHTML = `
+  setHtml("#progress-panel", `
     <div class="list-item">
       <strong>Progress Snapshot</strong>
       <p>Completion rate: ${progress.completion_rate}% | Percentile rank: ${progress.percentile_rank}%</p>
@@ -514,15 +549,15 @@ async function loadProgress(studentId) {
       <p>Interview trend: ${scores.length ? scores.join(" -> ") : "No interviews yet"}</p>
       ${renderSparkline(scores)}
     </div>
-  `;
+  `);
 }
 
 async function loadChatHistory(studentId) {
   const response = await apiFetch(`/api/chat/history/${studentId}`);
   const history = await response.json();
-  qs("#chat-history").innerHTML = history.map((msg) => `
+  setHtml("#chat-history", history.map((msg) => `
     <p><strong>${msg.role === "assistant" ? "Mentor" : "You"}:</strong> ${msg.content}</p>
-  `).join("") || "No chat yet. Ask the mentor something.";
+  `).join("") || "No chat yet. Ask the mentor something.");
 }
 
 async function refreshStudent() {
@@ -582,9 +617,16 @@ async function handleStudentCreate(event) {
 
 async function handleResumeUpload(event) {
   event.preventDefault();
-  const fileInput = qs("#resume-file");
-  const file = fileInput.files[0];
-  if (!file || !state.selectedStudentId) return;
+  if (!state.selectedStudentId) {
+    setStatus("No student selected.", true);
+    return;
+  }
+  const fileInput = event.currentTarget.querySelector('input[type="file"]') || qs("#resume-file") || qs("#create-resume-file");
+  const file = fileInput?.files?.[0];
+  if (!file) {
+    setStatus("Please select a resume file first.", true);
+    return;
+  }
 
   const formData = new FormData();
   formData.append("file", file);
@@ -613,23 +655,31 @@ async function handleResumeUpload(event) {
 
 async function handleInterviewStart(event) {
   event.preventDefault();
-  if (!state.selectedStudentId) return;
+  if (!state.selectedStudentId) {
+    setStatus("No student selected.", true);
+    return;
+  }
   const formData = new FormData();
-  formData.append("tone", qs("#interview-tone").value);
-  state.interviewMode = qs("#interview-mode").value;
+  const tone = qs("#interview-tone")?.value || "supportive";
+  const mode = qs("#interview-mode")?.value || "text";
+  const submitButton = event.currentTarget.querySelector('button[type="submit"]');
+  formData.append("tone", tone);
+  state.interviewMode = mode;
   state.finalTranscript = "";
   renderVoiceTranscript("");
   updateInterviewModeUi();
 
   try {
+    setStatus("Starting interview session...");
+    setButtonLoading(submitButton, true, "Starting...");
     const response = await apiFetch(`/api/students/${state.selectedStudentId}/interview/start`, {
       method: "POST",
       body: formData,
     });
     const session = await response.json();
     state.activeSessionId = session.id;
-    qs("#interview-question").textContent = session.current_question;
-    qs("#interview-feedback").innerHTML = `<div class="list-item">Interview session started in ${session.tone} mode.</div>`;
+    setText("#interview-question", session.current_question);
+    setHtml("#interview-feedback", `<div class="list-item">Interview session started in ${session.tone} mode.</div>`);
     setStatus("Interview started.");
     if (state.interviewMode === "voice") {
       showMicModal("Voice interview is ready. Click Enable Microphone first, allow the browser prompt, then use Start Listening to answer.");
@@ -638,6 +688,8 @@ async function handleInterviewStart(event) {
     }
   } catch (error) {
     setStatus(error.message, true);
+  } finally {
+    setButtonLoading(submitButton, false);
   }
 }
 
@@ -645,24 +697,33 @@ async function handleInterviewReply(event) {
   if (event) {
     event.preventDefault();
   }
-  if (!state.selectedStudentId || !state.activeSessionId) return;
-  const answer = qs("#interview-answer").value.trim();
-  if (!answer) return;
+  if (!state.selectedStudentId || !state.activeSessionId) {
+    setStatus("No active interview session. Start one first.", true);
+    return;
+  }
+  const answerEl = qs("#interview-answer");
+  const answer = answerEl?.value.trim() || "";
+  if (!answer) {
+    setStatus("Please enter or record an answer first.", true);
+    return;
+  }
+  const submitButton = event?.currentTarget?.querySelector?.('button[type="submit"]');
 
   const formData = new FormData();
   formData.append("answer", answer);
 
   try {
+    setButtonLoading(submitButton, true, "Evaluating...");
     const response = await apiFetch(`/api/students/${state.selectedStudentId}/interview/${state.activeSessionId}/reply`, {
       method: "POST",
       body: formData,
     });
     const result = await response.json();
-    qs("#interview-answer").value = "";
+    if (answerEl) answerEl.value = "";
     state.finalTranscript = "";
     renderVoiceTranscript("");
-    qs("#interview-question").textContent = result.next_question || "Interview completed. Start a new session anytime.";
-    qs("#interview-feedback").innerHTML = `
+    setText("#interview-question", result.next_question || "Interview completed. Start a new session anytime.");
+    setHtml("#interview-feedback", `
       <div class="list-item">
         <strong>Feedback <span class="badge ${result.ai_enabled ? "" : "offline"}">${result.source}</span></strong>
         <p>${result.latest_feedback}</p>
@@ -670,7 +731,7 @@ async function handleInterviewReply(event) {
         <p><strong>Current score:</strong> ${result.session.overall_score}%</p>
         <p><strong>Report:</strong> ${result.session.report_summary || "Interview report will grow as the session continues."}</p>
       </div>
-    `;
+    `);
     await refreshStudent();
     if (state.interviewMode === "voice" && result.next_question) {
       speakText(result.next_question);
@@ -678,13 +739,16 @@ async function handleInterviewReply(event) {
     }
   } catch (error) {
     setStatus(error.message, true);
+  } finally {
+    setButtonLoading(submitButton, false);
   }
 }
 
 async function handleChat(event) {
   event.preventDefault();
   if (!state.selectedStudentId) return;
-  const message = qs("#chat-message").value.trim();
+  const messageEl = qs("#chat-message");
+  const message = messageEl?.value.trim() || "";
   if (!message) return;
   const formData = new FormData();
   formData.append("student_id", state.selectedStudentId);
@@ -692,66 +756,74 @@ async function handleChat(event) {
   try {
     const response = await apiFetch("/api/chat", { method: "POST", body: formData });
     const result = await response.json();
-    qs("#chat-message").value = "";
-    qs("#chat-history").innerHTML = result.history.map((msg) => `
+    if (messageEl) messageEl.value = "";
+    setHtml("#chat-history", result.history.map((msg) => `
       <p><strong>${msg.role === "assistant" ? "Mentor" : "You"}:</strong> ${msg.content}</p>
-    `).join("");
+    `).join(""));
   } catch (error) {
     setStatus(error.message, true);
   }
 }
 
 function bindForms() {
-  qs("#student-create-form").addEventListener("submit", handleStudentCreate);
-  qs("#student-create-inline-form").addEventListener("submit", handleStudentCreate);
-  qs("#resume-form").addEventListener("submit", handleResumeUpload);
-  qs("#chat-form").addEventListener("submit", handleChat);
-  qs("#start-interview-form").addEventListener("submit", handleInterviewStart);
-  qs("#interview-reply-form").addEventListener("submit", handleInterviewReply);
-  qs("#interview-mode").addEventListener("change", (event) => {
+  const safe = (selector, event, handler) => {
+    const el = qs(selector);
+    if (el) el.addEventListener(event, handler);
+  };
+
+  safe("#student-create-form", "submit", handleStudentCreate);
+  safe("#student-create-inline-form", "submit", handleStudentCreate);
+  safe("#resume-form", "submit", handleResumeUpload);
+  safe("#chat-form", "submit", handleChat);
+  safe("#start-interview-form", "submit", handleInterviewStart);
+  safe("#interview-reply-form", "submit", handleInterviewReply);
+  safe("#interview-mode", "change", (event) => {
     state.interviewMode = event.target.value;
     updateInterviewModeUi();
   });
-  qs("#voice-toggle").addEventListener("click", () => {
+  safe("#voice-toggle", "click", () => {
     startVoiceListening().catch((error) => setVoiceStatus(error.message, true));
   });
-  qs("#voice-submit").addEventListener("click", async () => {
-    if (!qs("#interview-answer").value.trim()) {
+  safe("#voice-submit", "click", async () => {
+    if (!qs("#interview-answer")?.value.trim()) {
       setVoiceStatus("Record or type an answer before submitting.", true);
       return;
     }
     stopVoiceRecognition();
     await handleInterviewReply();
   });
-  qs("#voice-replay").addEventListener("click", () => {
-    speakText(qs("#interview-question").textContent);
+  safe("#voice-replay", "click", () => {
+    speakText(qs("#interview-question")?.textContent || "");
   });
-  qs("#mic-modal-confirm").addEventListener("click", async () => {
+  safe("#mic-modal-confirm", "click", async () => {
     try {
       await promptForMicrophoneAccess();
-      speakText(qs("#interview-question").textContent);
+      speakText(qs("#interview-question")?.textContent || "");
     } catch (error) {
       setVoiceStatus("Microphone access is still blocked. Allow it in the browser prompt or site settings.", true);
       showMicModal("Microphone access is still blocked. Click the lock icon in the address bar, allow the microphone, then try Enable Microphone again.");
     }
   });
-  qs("#mic-modal-close").addEventListener("click", hideMicModal);
-  document.querySelectorAll("[data-mic-close]").forEach((element) => {
+  safe("#mic-modal-close", "click", hideMicModal);
+  qsa("[data-mic-close]").forEach((element) => {
     element.addEventListener("click", hideMicModal);
   });
-  qs("#show-add-student").addEventListener("click", () => {
-    qs("#student-create-inline").hidden = false;
+  safe("#show-add-student", "click", () => {
+    const panel = qs("#student-create-inline");
+    if (panel) panel.hidden = false;
   });
-  qs("#cancel-add-student").addEventListener("click", () => {
-    qs("#student-create-inline").hidden = true;
-    qs("#student-create-inline-form").reset();
+  safe("#cancel-add-student", "click", () => {
+    const panel = qs("#student-create-inline");
+    const form = qs("#student-create-inline-form");
+    if (panel) panel.hidden = true;
+    if (form) form.reset();
   });
-  qs("#open-resume-upload").addEventListener("click", openResumeModal);
-  qs("#close-resume-modal").addEventListener("click", closeResumeModal);
-  document.querySelectorAll("[data-open-upload]").forEach((element) => {
+  safe("#open-resume-upload", "click", openResumeModal);
+  safe("#close-resume-modal", "click", closeResumeModal);
+  qsa("[data-open-upload]").forEach((element) => {
     element.addEventListener("click", openResumeModal);
   });
-  document.querySelectorAll("[data-close-resume-modal]").forEach((element) => {
+  qsa("[data-close-resume-modal]").forEach((element) => {
     element.addEventListener("click", closeResumeModal);
   });
 }
